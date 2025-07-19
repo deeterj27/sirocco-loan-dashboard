@@ -6,6 +6,8 @@ from dateutil.relativedelta import relativedelta
 import numpy as np
 import os
 
+st.set_page_config(page_title="Sirocco I LP Loan Dashboard", layout="wide", initial_sidebar_state="expanded")
+
 # Custom CSS for Sirocco branding
 st.markdown("""
 <style>
@@ -182,7 +184,6 @@ def get_cell_value(sheet, locations, default=None):
     return default
 
 # Main app
-st.set_page_config(page_title="Sirocco I LP Loan Dashboard", layout="wide", initial_sidebar_state="expanded")
 
 # Header with Sirocco branding
 st.markdown("""
