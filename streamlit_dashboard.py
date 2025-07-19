@@ -6,30 +6,6 @@ from dateutil.relativedelta import relativedelta
 import numpy as np
 import os
 
-def check_password():
-    """Returns `True` if the user had the correct password."""
-    def password_entered():
-        """Checks whether a password entered by the user is correct."""
-        if st.session_state["password"] == os.environ.get("PASSWORD", "sirocco2024"):
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]
-        else:
-            st.session_state["password_correct"] = False
-
-    if "password_correct" not in st.session_state:
-        st.text_input("Password", type="password", on_change=password_entered, key="password")
-        return False
-    elif not st.session_state["password_correct"]:
-        st.text_input("Password", type="password", on_change=password_entered, key="password")
-        st.error("😕 Password incorrect")
-        return False
-    else:
-        return True
-
-# Add this right after your imports and before the main app
-if not check_password():
-    st.stop()
-
 # Custom CSS for Sirocco branding
 st.markdown("""
 <style>
