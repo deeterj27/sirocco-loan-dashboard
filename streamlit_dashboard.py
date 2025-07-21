@@ -6,7 +6,7 @@ from dateutil.relativedelta import relativedelta
 import numpy as np
 import os
 
-st.set_page_config(page_title="Sirocco I LP Loan Dashboard", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Sirocco I LP Portfolio Dashboard", layout="wide", initial_sidebar_state="expanded")
 
 # Custom CSS for Sirocco branding
 st.markdown("""
@@ -99,19 +99,30 @@ st.markdown("""
         border: 2px dashed #FDB813;
     }
     
-    /* Checkbox */
-    .stCheckbox label {
-        color: #FFFFFF !important;
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        background-color: #2d2d2d;
+        color: #FFFFFF;
+        border-radius: 4px 4px 0px 0px;
+        gap: 1px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        border: 1px solid #3d3d3d;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background-color: #FDB813;
+        color: #1a1a1a;
+        font-weight: 600;
     }
     
     /* General text */
     .stMarkdown, .stText, p, span, div {
         color: #FFFFFF;
-    }
-    
-    /* Column headers with Sirocco yellow */
-    .css-1kyxreq {
-        color: #FDB813 !important;
     }
     
     /* Buttons */
@@ -189,7 +200,7 @@ def get_cell_value(sheet, locations, default=None):
 st.markdown("""
 <div style='background-color: #1a1a1a; padding: 2rem 0; margin: -2rem -2rem 2rem -2rem; border-bottom: 4px solid #FDB813;'>
     <h1 style='text-align: center; color: #FFFFFF; font-size: 2.5rem; margin: 0;'>
-        <span style='color: #FDB813;'>⚡</span> Sirocco I LP Loan Dashboard
+        <span style='color: #FDB813;'>⚡</span> Sirocco I LP Portfolio Dashboard
     </h1>
     <p style='text-align: center; color: #999999; margin-top: 0.5rem;'>Loan Participation Portfolio Management System</p>
 </div>
@@ -835,7 +846,7 @@ else:
     st.markdown("""
     <div style='text-align: center; padding: 3rem 0;'>
         <div style='font-size: 5rem; color: #FDB813;'>⚡</div>
-        <h2 style='color: #FFFFFF; margin-top: 1rem;'>Welcome to the Sirocco I LP Loan Dashboard</h2>
+        <h2 style='color: #FFFFFF; margin-top: 1rem;'>Welcome to the Sirocco I LP Portfolio Dashboard</h2>
         <p style='color: #999999; font-size: 1.2rem; margin-top: 1rem;'>
             Upload your Master Excel file to begin analyzing your loan portfolio
         </p>
