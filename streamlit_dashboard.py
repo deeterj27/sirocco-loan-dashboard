@@ -809,6 +809,11 @@ if master_file:
                 
                 comparison_df = pd.DataFrame(comparison_data)
                 
+                # Only proceed if we have data
+                if len(comparison_df) == 0:
+                    st.warning("No overlapping months found between loan cashflows and life settlement premiums.")
+                    return
+                
                 # Create visualization
                 col1, col2 = st.columns([3, 1])
                 
@@ -830,10 +835,8 @@ if master_file:
                             mode='lines+markers',
                             line=dict(color='#FDB813', width=3),
                             marker=dict(size=8),
-                            fill='tozeroy',
-                            fillcolor='rgba(253, 184, 19, 0.2)',
                             text=[f'${v:,.0f}' for v in comparison_df['Loan Cashflows']],
-                            hovertemplate='%{text}<extra></extra>'
+                            hovertemplate='Loan Collections: %{text}<extra></extra>'
                         ))
                         
                         # Add LS premiums line
@@ -844,10 +847,8 @@ if master_file:
                             mode='lines+markers',
                             line=dict(color='#FF6B6B', width=3),
                             marker=dict(size=8),
-                            fill='tozeroy',
-                            fillcolor='rgba(255, 107, 107, 0.2)',
                             text=[f'${v:,.0f}' for v in comparison_df['LS Premiums']],
-                            hovertemplate='%{text}<extra></extra>'
+                            hovertemplate='LS Premiums: %{text}<extra></extra>'
                         ))
                         
                         # Add net cashflow line with emphasis
@@ -855,54 +856,78 @@ if master_file:
                             name='Net Cash Flow',
                             x=comparison_df['Month'],
                             y=comparison_df['Net Cash Flow'],
-                            mode='lines+markers+text',
-                            line=dict(color='#4ECDC4', width=4, dash='solid'),
-                            marker=dict(size=12, symbol='diamond'),
+                            mode='lines+markers',
+                            line=dict(color='#4ECDC4', width=5, dash='solid'),
+                            marker=dict(
+                                size=12, 
+                                symbol='diamond',
+                                color=comparison_df['Net Cash Flow'].apply(lambda x: '#4ECDC4' if x >= 0 else '#FF6B6B'),
+                                line=dict(width=2, color='white')
+                            ),
                             text=[f'${v:,.0f}' for v in comparison_df['Net Cash Flow']],
-                            textposition='top center',
-                            textfont=dict(size=12, color='#FFFFFF'),
                             hovertemplate='Net: %{text}<extra></extra>'
                         ))
                         
                         # Add zero line for reference
-                        fig.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
+                        fig.add_hline(y=0, line_dash="dash", line_color="white", opacity=0.5)
+                        
+                        # Find min and max values for better scaling
+                        all_values = list(comparison_df['Loan Cashflows']) + list(comparison_df['LS Premiums']) + list(comparison_df['Net Cash Flow'])
+                        y_min = min(all_values) * 1.1
+                        y_max = max(all_values) * 1.1
                         
                         # Update layout
                         fig.update_layout(
                             title={
-                                'text': 'Monthly Cash Flows: Loan Collections vs Life Settlement Premiums',
-                                'font': {'size': 20}
+                                'text': 'Monthly Cash Flow Analysis',
+                                'font': {'size': 20, 'color': '#FDB813'},
+                                'x': 0.5,
+                                'xanchor': 'center'
                             },
                             xaxis_title='Month',
                             yaxis_title='Amount ($)',
                             height=500,
-                            plot_bgcolor='#2d2d2d',
+                            plot_bgcolor='#1a1a1a',
                             paper_bgcolor='#1a1a1a',
-                            font=dict(color='#FFFFFF'),
+                            font=dict(color='#FFFFFF', size=12),
                             xaxis=dict(
                                 gridcolor='#3d3d3d',
                                 showgrid=True,
-                                zeroline=True,
-                                zerolinecolor='#666666'
+                                tickangle=-45,
+                                tickfont=dict(size=10)
                             ),
                             yaxis=dict(
                                 gridcolor='#3d3d3d',
                                 showgrid=True,
                                 tickformat='$,.0f',
-                                zeroline=True,
-                                zerolinecolor='#666666'
+                                range=[y_min, y_max]
                             ),
                             legend=dict(
                                 bgcolor='#2d2d2d',
-                                bordercolor='#3d3d3d',
+                                bordercolor='#FDB813',
                                 borderwidth=1,
                                 orientation='h',
-                                y=1.1,
+                                yanchor='bottom',
+                                y=1.02,
+                                xanchor='center',
                                 x=0.5,
-                                xanchor='center'
+                                font=dict(size=11)
                             ),
-                            hovermode='x unified'
+                            hovermode='x unified',
+                            margin=dict(l=80, r=20, t=80, b=80)
                         )
+                        
+                        # Add annotations for negative net cash flows
+                        for idx, row in comparison_df.iterrows():
+                            if row['Net Cash Flow'] < 0:
+                                fig.add_annotation(
+                                    x=row['Month'],
+                                    y=row['Net Cash Flow'],
+                                    text="⚠️",
+                                    showarrow=False,
+                                    yshift=-20,
+                                    font=dict(size=16)
+                                )
                         
                         st.plotly_chart(fig, use_container_width=True)
                     else:
@@ -915,12 +940,12 @@ if master_file:
                     
                     # Get current month data
                     current_date = datetime.now()
-                    current_period = current_date.to_period('M')
+                    current_period_str = current_date.strftime('%Y-%m')
                     
                     # Find the current month in the comparison data
                     current_month_data = None
                     for idx, row in comparison_df.iterrows():
-                        if row['Month'] == str(current_period):
+                        if current_period_str in row['Month']:
                             current_month_data = row
                             break
                     
@@ -929,7 +954,7 @@ if master_file:
                         current_month_data = comparison_df.iloc[0]
                         month_label = comparison_df.iloc[0]['Month']
                     else:
-                        month_label = str(current_period)
+                        month_label = current_period_str if current_month_data is not None else "N/A"
                     
                     if current_month_data is not None:
                         # Current month metrics
@@ -940,8 +965,7 @@ if master_file:
                         current_net = current_month_data['Net Cash Flow']
                         
                         st.metric("Loan Collections", format_currency(current_cashflow))
-                        st.metric("LS Premiums", format_currency(current_premium), 
-                                 delta=f"-{format_currency(current_premium)}", delta_color="inverse")
+                        st.metric("LS Premiums", format_currency(current_premium))
                         st.metric("Net Position", format_currency(current_net), 
                                  delta=f"{'Surplus' if current_net > 0 else 'Deficit'}",
                                  delta_color="normal" if current_net > 0 else "inverse")
@@ -951,6 +975,11 @@ if master_file:
                             coverage_ratio = (current_cashflow / current_premium) * 100
                             st.metric("Coverage Ratio", f"{coverage_ratio:.1f}%",
                                      help="Loan collections as % of LS premiums")
+                        else:
+                            st.metric("Coverage Ratio", "N/A",
+                                     help="No premiums this month")
+                    else:
+                        st.info("No data available for current month")
                     
                     # Period averages
                     st.markdown("<h4 style='color: #FFFFFF; margin-top: 2rem;'>Period Averages</h4>", unsafe_allow_html=True)
@@ -958,9 +987,9 @@ if master_file:
                     avg_premium = comparison_df['LS Premiums'].mean()
                     avg_net = comparison_df['Net Cash Flow'].mean()
                     
-                    st.metric("Avg Monthly Collections", format_currency(avg_cashflow))
-                    st.metric("Avg Monthly Premiums", format_currency(avg_premium))
-                    st.metric("Avg Monthly Net", format_currency(avg_net),
+                    st.metric("Avg Collections", format_currency(avg_cashflow))
+                    st.metric("Avg Premiums", format_currency(avg_premium))
+                    st.metric("Avg Net", format_currency(avg_net),
                              delta_color="normal" if avg_net > 0 else "inverse")
                 
                 # Detailed comparison table
