@@ -812,10 +812,9 @@ if master_file:
                 # Only proceed if we have data
                 if len(comparison_df) == 0:
                     st.warning("No overlapping months found between loan cashflows and life settlement premiums.")
-                    return
-                
-                # Create visualization
-                col1, col2 = st.columns([3, 1])
+                else:
+                    # Create visualization
+                    col1, col2 = st.columns([3, 1])
                 
                 with col1:
                     # Create a line graph using plotly if available
