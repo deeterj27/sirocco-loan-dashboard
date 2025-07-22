@@ -813,7 +813,7 @@ if master_file:
                 col1, col2 = st.columns([3, 1])
                 
                 with col1:
-                    # Create a bar chart using plotly if available, otherwise fallback
+                    # Create a line graph using plotly if available
                     try:
                         import plotly.graph_objects as go
                         PLOTLY_AVAILABLE = True
@@ -822,80 +822,146 @@ if master_file:
                     if PLOTLY_AVAILABLE:
                         fig = go.Figure()
                         
-                        # Add cashflow bars
-                        fig.add_trace(go.Bar(
+                        # Add loan cashflows line
+                        fig.add_trace(go.Scatter(
                             name='Loan Cashflows',
                             x=comparison_df['Month'],
                             y=comparison_df['Loan Cashflows'],
-                            marker_color='#FDB813',
+                            mode='lines+markers',
+                            line=dict(color='#FDB813', width=3),
+                            marker=dict(size=8),
+                            fill='tozeroy',
+                            fillcolor='rgba(253, 184, 19, 0.2)',
                             text=[f'${v:,.0f}' for v in comparison_df['Loan Cashflows']],
-                            textposition='outside',
+                            hovertemplate='%{text}<extra></extra>'
                         ))
                         
-                        # Add premium bars (negative for outflows)
-                        fig.add_trace(go.Bar(
-                            name='LS Premiums (Outflow)',
+                        # Add LS premiums line
+                        fig.add_trace(go.Scatter(
+                            name='LS Premiums',
                             x=comparison_df['Month'],
-                            y=-comparison_df['LS Premiums'],
-                            marker_color='#FF6B6B',
-                            text=[f'-${v:,.0f}' for v in comparison_df['LS Premiums']],
-                            textposition='outside',
+                            y=comparison_df['LS Premiums'],
+                            mode='lines+markers',
+                            line=dict(color='#FF6B6B', width=3),
+                            marker=dict(size=8),
+                            fill='tozeroy',
+                            fillcolor='rgba(255, 107, 107, 0.2)',
+                            text=[f'${v:,.0f}' for v in comparison_df['LS Premiums']],
+                            hovertemplate='%{text}<extra></extra>'
                         ))
                         
-                        # Add net cashflow line
+                        # Add net cashflow line with emphasis
                         fig.add_trace(go.Scatter(
                             name='Net Cash Flow',
                             x=comparison_df['Month'],
                             y=comparison_df['Net Cash Flow'],
                             mode='lines+markers+text',
-                            line=dict(color='#4ECDC4', width=3),
-                            marker=dict(size=10),
+                            line=dict(color='#4ECDC4', width=4, dash='solid'),
+                            marker=dict(size=12, symbol='diamond'),
                             text=[f'${v:,.0f}' for v in comparison_df['Net Cash Flow']],
                             textposition='top center',
+                            textfont=dict(size=12, color='#FFFFFF'),
+                            hovertemplate='Net: %{text}<extra></extra>'
                         ))
+                        
+                        # Add zero line for reference
+                        fig.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
                         
                         # Update layout
                         fig.update_layout(
-                            title='Monthly Cash Flows: Loan Collections vs Life Settlement Premiums',
+                            title={
+                                'text': 'Monthly Cash Flows: Loan Collections vs Life Settlement Premiums',
+                                'font': {'size': 20}
+                            },
                             xaxis_title='Month',
                             yaxis_title='Amount ($)',
-                            barmode='relative',
                             height=500,
                             plot_bgcolor='#2d2d2d',
                             paper_bgcolor='#1a1a1a',
                             font=dict(color='#FFFFFF'),
-                            xaxis=dict(gridcolor='#3d3d3d'),
-                            yaxis=dict(gridcolor='#3d3d3d', tickformat='$,.0f'),
+                            xaxis=dict(
+                                gridcolor='#3d3d3d',
+                                showgrid=True,
+                                zeroline=True,
+                                zerolinecolor='#666666'
+                            ),
+                            yaxis=dict(
+                                gridcolor='#3d3d3d',
+                                showgrid=True,
+                                tickformat='$,.0f',
+                                zeroline=True,
+                                zerolinecolor='#666666'
+                            ),
                             legend=dict(
                                 bgcolor='#2d2d2d',
                                 bordercolor='#3d3d3d',
-                                borderwidth=1
+                                borderwidth=1,
+                                orientation='h',
+                                y=1.1,
+                                x=0.5,
+                                xanchor='center'
                             ),
                             hovermode='x unified'
                         )
                         
                         st.plotly_chart(fig, use_container_width=True)
                     else:
-                        # Fallback to simple bar chart if plotly not available
-                        st.bar_chart(comparison_df.set_index('Month')[['Loan Cashflows', 'LS Premiums', 'Net Cash Flow']])
+                        # Fallback to simple line chart if plotly not available
+                        st.line_chart(comparison_df.set_index('Month')[['Loan Cashflows', 'LS Premiums', 'Net Cash Flow']])
                 
                 with col2:
-                    # Summary metrics
-                    st.markdown("<h3 style='color: #FFFFFF;'>Period Summary</h3>", unsafe_allow_html=True)
+                    # Summary metrics - Current Month Focus
+                    st.markdown("<h3 style='color: #FFFFFF;'>Current Month Stats</h3>", unsafe_allow_html=True)
                     
-                    total_cashflows = comparison_df['Loan Cashflows'].sum()
-                    total_premiums = comparison_df['LS Premiums'].sum()
-                    total_net = comparison_df['Net Cash Flow'].sum()
+                    # Get current month data
+                    current_date = datetime.now()
+                    current_period = current_date.to_period('M')
                     
-                    st.metric("Total Loan Cashflows", format_currency(total_cashflows))
-                    st.metric("Total LS Premiums", format_currency(total_premiums), delta=f"-{format_currency(total_premiums)}", delta_color="inverse")
-                    st.metric("Net Cash Position", format_currency(total_net), 
-                             delta=f"{'Positive' if total_net > 0 else 'Negative'} Flow",
-                             delta_color="normal" if total_net > 0 else "inverse")
+                    # Find the current month in the comparison data
+                    current_month_data = None
+                    for idx, row in comparison_df.iterrows():
+                        if row['Month'] == str(current_period):
+                            current_month_data = row
+                            break
                     
-                    # Average metrics
+                    # If current month not found, use the first month in the data
+                    if current_month_data is None and len(comparison_df) > 0:
+                        current_month_data = comparison_df.iloc[0]
+                        month_label = comparison_df.iloc[0]['Month']
+                    else:
+                        month_label = str(current_period)
+                    
+                    if current_month_data is not None:
+                        # Current month metrics
+                        st.markdown(f"<p style='color: #FDB813; font-weight: 600; margin-bottom: 1rem;'>📅 {month_label}</p>", unsafe_allow_html=True)
+                        
+                        current_cashflow = current_month_data['Loan Cashflows']
+                        current_premium = current_month_data['LS Premiums']
+                        current_net = current_month_data['Net Cash Flow']
+                        
+                        st.metric("Loan Collections", format_currency(current_cashflow))
+                        st.metric("LS Premiums", format_currency(current_premium), 
+                                 delta=f"-{format_currency(current_premium)}", delta_color="inverse")
+                        st.metric("Net Position", format_currency(current_net), 
+                                 delta=f"{'Surplus' if current_net > 0 else 'Deficit'}",
+                                 delta_color="normal" if current_net > 0 else "inverse")
+                        
+                        # Coverage ratio
+                        if current_premium > 0:
+                            coverage_ratio = (current_cashflow / current_premium) * 100
+                            st.metric("Coverage Ratio", f"{coverage_ratio:.1f}%",
+                                     help="Loan collections as % of LS premiums")
+                    
+                    # Period averages
+                    st.markdown("<h4 style='color: #FFFFFF; margin-top: 2rem;'>Period Averages</h4>", unsafe_allow_html=True)
+                    avg_cashflow = comparison_df['Loan Cashflows'].mean()
+                    avg_premium = comparison_df['LS Premiums'].mean()
                     avg_net = comparison_df['Net Cash Flow'].mean()
-                    st.metric("Avg Monthly Net", format_currency(avg_net))
+                    
+                    st.metric("Avg Monthly Collections", format_currency(avg_cashflow))
+                    st.metric("Avg Monthly Premiums", format_currency(avg_premium))
+                    st.metric("Avg Monthly Net", format_currency(avg_net),
+                             delta_color="normal" if avg_net > 0 else "inverse")
                 
                 # Detailed comparison table
                 with st.expander("📊 Detailed Monthly Comparison"):
