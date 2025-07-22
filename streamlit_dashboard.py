@@ -99,9 +99,19 @@ st.markdown("""
         border: 2px dashed #FDB813;
     }
     
+    /* Checkbox */
+    .stCheckbox label {
+        color: #FFFFFF !important;
+    }
+    
     /* General text */
     .stMarkdown, .stText, p, span, div {
         color: #FFFFFF;
+    }
+    
+    /* Column headers with Sirocco yellow */
+    .css-1kyxreq {
+        color: #FDB813 !important;
     }
     
     /* Buttons */
