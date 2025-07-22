@@ -99,27 +99,6 @@ st.markdown("""
         border: 2px dashed #FDB813;
     }
     
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        background-color: #2d2d2d;
-        color: #FFFFFF;
-        border-radius: 4px 4px 0px 0px;
-        gap: 1px;
-        padding-top: 10px;
-        padding-bottom: 10px;
-        border: 1px solid #3d3d3d;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background-color: #FDB813;
-        color: #1a1a1a;
-        font-weight: 600;
-    }
-    
     /* General text */
     .stMarkdown, .stText, p, span, div {
         color: #FFFFFF;
