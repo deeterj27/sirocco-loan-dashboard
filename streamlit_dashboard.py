@@ -762,149 +762,161 @@ if master_file:
         if cashflow_data and ls_data and ls_data['monthly_premiums']:
             st.markdown("<h2 style='color: #FDB813; margin-top: 3rem;'>📈 Cashflow vs Premium Analysis</h2>", unsafe_allow_html=True)
             
-            # Prepare cashflow data
-            cashflow_monthly = cashflow_df.groupby('Month')['Payment Amount'].sum()
-            
-            # Prepare premium data - need to convert month names to periods
-            premium_months = []
-            premium_amounts = []
-            
-            for month_str, amount in ls_data['monthly_premiums'].items():
-                try:
-                    # Parse month string (assuming format like "Jul-25", "Aug-25", etc.)
-                    if '-' in month_str:
-                        month_parts = month_str.split('-')
-                        month_name = month_parts[0]
-                        year = '20' + month_parts[1] if len(month_parts[1]) == 2 else month_parts[1]
+            try:
+                # Prepare cashflow data
+                cashflow_monthly = cashflow_df.groupby('Month')['Payment Amount'].sum()
+                
+                # Prepare premium data - need to convert month names to periods
+                premium_months = []
+                premium_amounts = []
+                
+                for month_str, amount in ls_data['monthly_premiums'].items():
+                    try:
+                        # Parse month string (assuming format like "Jul-25", "Aug-25", etc.)
+                        if '-' in month_str:
+                            month_parts = month_str.split('-')
+                            month_name = month_parts[0]
+                            year = '20' + month_parts[1] if len(month_parts[1]) == 2 else month_parts[1]
+                            
+                            # Convert to datetime
+                            month_date = pd.to_datetime(f"{month_name} {year}", format='%b %Y')
+                            month_period = month_date.to_period('M')
+                            
+                            premium_months.append(month_period)
+                            premium_amounts.append(amount)
+                    except:
+                        continue
+                
+                # Create premium series
+                premium_series = pd.Series(premium_amounts, index=premium_months)
+                
+                # Align the data - get common months
+                all_months = sorted(set(cashflow_monthly.index) | set(premium_series.index))
+                
+                # Create aligned dataframes
+                comparison_data = []
+                for month in all_months:
+                    cashflow_amt = cashflow_monthly.get(month, 0)
+                    premium_amt = premium_series.get(month, 0)
+                    net_flow = cashflow_amt - premium_amt
+                    
+                    comparison_data.append({
+                        'Month': str(month),
+                        'Loan Cashflows': cashflow_amt,
+                        'LS Premiums': premium_amt,
+                        'Net Cash Flow': net_flow
+                    })
+                
+                comparison_df = pd.DataFrame(comparison_data)
+                
+                # Create visualization
+                col1, col2 = st.columns([3, 1])
+                
+                with col1:
+                    # Create a bar chart using plotly if available, otherwise fallback
+                    try:
+                        import plotly.graph_objects as go
+                        PLOTLY_AVAILABLE = True
+                    except ImportError:
+                        PLOTLY_AVAILABLE = False
+                    if PLOTLY_AVAILABLE:
+                        fig = go.Figure()
                         
-                        # Convert to datetime
-                        month_date = pd.to_datetime(f"{month_name} {year}", format='%b %Y')
-                        month_period = month_date.to_period('M')
+                        # Add cashflow bars
+                        fig.add_trace(go.Bar(
+                            name='Loan Cashflows',
+                            x=comparison_df['Month'],
+                            y=comparison_df['Loan Cashflows'],
+                            marker_color='#FDB813',
+                            text=[f'${v:,.0f}' for v in comparison_df['Loan Cashflows']],
+                            textposition='outside',
+                        ))
                         
-                        premium_months.append(month_period)
-                        premium_amounts.append(amount)
-                except:
-                    continue
+                        # Add premium bars (negative for outflows)
+                        fig.add_trace(go.Bar(
+                            name='LS Premiums (Outflow)',
+                            x=comparison_df['Month'],
+                            y=-comparison_df['LS Premiums'],
+                            marker_color='#FF6B6B',
+                            text=[f'-${v:,.0f}' for v in comparison_df['LS Premiums']],
+                            textposition='outside',
+                        ))
+                        
+                        # Add net cashflow line
+                        fig.add_trace(go.Scatter(
+                            name='Net Cash Flow',
+                            x=comparison_df['Month'],
+                            y=comparison_df['Net Cash Flow'],
+                            mode='lines+markers+text',
+                            line=dict(color='#4ECDC4', width=3),
+                            marker=dict(size=10),
+                            text=[f'${v:,.0f}' for v in comparison_df['Net Cash Flow']],
+                            textposition='top center',
+                        ))
+                        
+                        # Update layout
+                        fig.update_layout(
+                            title='Monthly Cash Flows: Loan Collections vs Life Settlement Premiums',
+                            xaxis_title='Month',
+                            yaxis_title='Amount ($)',
+                            barmode='relative',
+                            height=500,
+                            plot_bgcolor='#2d2d2d',
+                            paper_bgcolor='#1a1a1a',
+                            font=dict(color='#FFFFFF'),
+                            xaxis=dict(gridcolor='#3d3d3d'),
+                            yaxis=dict(gridcolor='#3d3d3d', tickformat='$,.0f'),
+                            legend=dict(
+                                bgcolor='#2d2d2d',
+                                bordercolor='#3d3d3d',
+                                borderwidth=1
+                            ),
+                            hovermode='x unified'
+                        )
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        # Fallback to simple bar chart if plotly not available
+                        st.bar_chart(comparison_df.set_index('Month')[['Loan Cashflows', 'LS Premiums', 'Net Cash Flow']])
+                
+                with col2:
+                    # Summary metrics
+                    st.markdown("<h3 style='color: #FFFFFF;'>Period Summary</h3>", unsafe_allow_html=True)
+                    
+                    total_cashflows = comparison_df['Loan Cashflows'].sum()
+                    total_premiums = comparison_df['LS Premiums'].sum()
+                    total_net = comparison_df['Net Cash Flow'].sum()
+                    
+                    st.metric("Total Loan Cashflows", format_currency(total_cashflows))
+                    st.metric("Total LS Premiums", format_currency(total_premiums), delta=f"-{format_currency(total_premiums)}", delta_color="inverse")
+                    st.metric("Net Cash Position", format_currency(total_net), 
+                             delta=f"{'Positive' if total_net > 0 else 'Negative'} Flow",
+                             delta_color="normal" if total_net > 0 else "inverse")
+                    
+                    # Average metrics
+                    avg_net = comparison_df['Net Cash Flow'].mean()
+                    st.metric("Avg Monthly Net", format_currency(avg_net))
+                
+                # Detailed comparison table
+                with st.expander("📊 Detailed Monthly Comparison"):
+                    display_comparison = comparison_df.copy()
+                    for col in ['Loan Cashflows', 'LS Premiums', 'Net Cash Flow']:
+                        display_comparison[col] = display_comparison[col].apply(format_currency)
+                    
+                    # Add highlighting for negative net flows
+                    def highlight_negative(val):
+                        if isinstance(val, str) and val.startswith('$'):
+                            num_val = float(val.replace('$', '').replace(',', ''))
+                            if num_val < 0:
+                                return 'color: #FF6B6B'
+                        return ''
+                    
+                    styled_df = display_comparison.style.applymap(highlight_negative, subset=['Net Cash Flow'])
+                    st.dataframe(styled_df, use_container_width=True, hide_index=True)
             
-            # Create premium series
-            premium_series = pd.Series(premium_amounts, index=premium_months)
-            
-            # Align the data - get common months
-            all_months = sorted(set(cashflow_monthly.index) | set(premium_series.index))
-            
-            # Create aligned dataframes
-            comparison_data = []
-            for month in all_months:
-                cashflow_amt = cashflow_monthly.get(month, 0)
-                premium_amt = premium_series.get(month, 0)
-                net_flow = cashflow_amt - premium_amt
-                
-                comparison_data.append({
-                    'Month': str(month),
-                    'Loan Cashflows': cashflow_amt,
-                    'LS Premiums': premium_amt,
-                    'Net Cash Flow': net_flow
-                })
-            
-            comparison_df = pd.DataFrame(comparison_data)
-            
-            # Create visualization
-            col1, col2 = st.columns([3, 1])
-            
-            with col1:
-                # Create a bar chart using Streamlit's native charting
-                import plotly.graph_objects as go
-                
-                fig = go.Figure()
-                
-                # Add cashflow bars
-                fig.add_trace(go.Bar(
-                    name='Loan Cashflows',
-                    x=comparison_df['Month'],
-                    y=comparison_df['Loan Cashflows'],
-                    marker_color='#FDB813',
-                    text=[f'${v:,.0f}' for v in comparison_df['Loan Cashflows']],
-                    textposition='outside',
-                ))
-                
-                # Add premium bars (negative for outflows)
-                fig.add_trace(go.Bar(
-                    name='LS Premiums (Outflow)',
-                    x=comparison_df['Month'],
-                    y=-comparison_df['LS Premiums'],
-                    marker_color='#FF6B6B',
-                    text=[f'-${v:,.0f}' for v in comparison_df['LS Premiums']],
-                    textposition='outside',
-                ))
-                
-                # Add net cashflow line
-                fig.add_trace(go.Scatter(
-                    name='Net Cash Flow',
-                    x=comparison_df['Month'],
-                    y=comparison_df['Net Cash Flow'],
-                    mode='lines+markers+text',
-                    line=dict(color='#4ECDC4', width=3),
-                    marker=dict(size=10),
-                    text=[f'${v:,.0f}' for v in comparison_df['Net Cash Flow']],
-                    textposition='top center',
-                ))
-                
-                # Update layout
-                fig.update_layout(
-                    title='Monthly Cash Flows: Loan Collections vs Life Settlement Premiums',
-                    xaxis_title='Month',
-                    yaxis_title='Amount ($)',
-                    barmode='relative',
-                    height=500,
-                    plot_bgcolor='#2d2d2d',
-                    paper_bgcolor='#1a1a1a',
-                    font=dict(color='#FFFFFF'),
-                    xaxis=dict(gridcolor='#3d3d3d'),
-                    yaxis=dict(gridcolor='#3d3d3d', tickformat='$,.0f'),
-                    legend=dict(
-                        bgcolor='#2d2d2d',
-                        bordercolor='#3d3d3d',
-                        borderwidth=1
-                    ),
-                    hovermode='x unified'
-                )
-                
-                st.plotly_chart(fig, use_container_width=True)
-            
-            with col2:
-                # Summary metrics
-                st.markdown("<h3 style='color: #FFFFFF;'>Period Summary</h3>", unsafe_allow_html=True)
-                
-                total_cashflows = comparison_df['Loan Cashflows'].sum()
-                total_premiums = comparison_df['LS Premiums'].sum()
-                total_net = comparison_df['Net Cash Flow'].sum()
-                
-                st.metric("Total Loan Cashflows", format_currency(total_cashflows))
-                st.metric("Total LS Premiums", format_currency(total_premiums), delta=f"-{format_currency(total_premiums)}", delta_color="inverse")
-                st.metric("Net Cash Position", format_currency(total_net), 
-                         delta=f"{'Positive' if total_net > 0 else 'Negative'} Flow",
-                         delta_color="normal" if total_net > 0 else "inverse")
-                
-                # Average metrics
-                avg_net = comparison_df['Net Cash Flow'].mean()
-                st.metric("Avg Monthly Net", format_currency(avg_net))
-            
-            # Detailed comparison table
-            with st.expander("📊 Detailed Monthly Comparison"):
-                display_comparison = comparison_df.copy()
-                for col in ['Loan Cashflows', 'LS Premiums', 'Net Cash Flow']:
-                    display_comparison[col] = display_comparison[col].apply(format_currency)
-                
-                # Add highlighting for negative net flows
-                def highlight_negative(val):
-                    if isinstance(val, str) and val.startswith('$'):
-                        num_val = float(val.replace('$', '').replace(',', ''))
-                        if num_val < 0:
-                            return 'color: #FF6B6B'
-                    return ''
-                
-                styled_df = display_comparison.style.applymap(highlight_negative, subset=['Net Cash Flow'])
-                st.dataframe(styled_df, use_container_width=True, hide_index=True)
+            except Exception as e:
+                st.error(f"Error creating cashflow vs premium analysis: {str(e)}")
+                st.info("Please check that both loan cashflow data and life settlement premium data are properly loaded.")
 
         # Display LS data if available (but after all loan data)
         if ls_data:
