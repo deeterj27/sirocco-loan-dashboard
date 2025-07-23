@@ -672,7 +672,10 @@ if master_file:
                 size_dist = active_loans['Size_Category'].value_counts().sort_index()
                 
                 for category, count in size_dist.items():
-                    st.text(f"{category}: {count} loans")
+                    st.markdown(f"<div style='display: flex; justify-content: space-between; padding: 0.25rem 0; border-bottom: 1px solid #3d3d3d;'>"
+                               f"<span style='color: #FDB813;'>{category}:</span>"
+                               f"<span style='color: #FFFFFF; font-weight: 600;'>{count} loans</span>"
+                               f"</div>", unsafe_allow_html=True)
             
             with col2:
                 # Interest rate distribution
@@ -683,7 +686,10 @@ if master_file:
                 rate_dist = active_loans['Rate_Category'].value_counts().sort_index()
                 
                 for category, count in rate_dist.items():
-                    st.text(f"{category}: {count} loans")
+                    st.markdown(f"<div style='display: flex; justify-content: space-between; padding: 0.25rem 0; border-bottom: 1px solid #3d3d3d;'>"
+                               f"<span style='color: #FDB813;'>{category}:</span>"
+                               f"<span style='color: #FFFFFF; font-weight: 600;'>{count} loans</span>"
+                               f"</div>", unsafe_allow_html=True)
             
             with col3:
                 # Maturity distribution
@@ -696,7 +702,32 @@ if master_file:
                 
                 for category, count in maturity_dist.items():
                     if pd.notna(count):
-                        st.text(f"{category}: {count} loans")
+                        st.markdown(f"<div style='display: flex; justify-content: space-between; padding: 0.25rem 0; border-bottom: 1px solid #3d3d3d;'>"
+                                   f"<span style='color: #FDB813;'>{category}:</span>"
+                                   f"<span style='color: #FFFFFF; font-weight: 600;'>{count} loans</span>"
+                                   f"</div>", unsafe_allow_html=True)
+        
+        # Closed Loans Summary Section (MOVED HERE)
+        st.markdown("<h2 style='color: #FDB813; margin-top: 2rem;'>📊 Closed Loans Summary</h2>", unsafe_allow_html=True)
+        
+        # Calculate historical metrics
+        total_repaid_principal = loans_df['Total Principal Repaid'].sum()
+        total_repaid_interest = loans_df['Total Interest Repaid'].sum()
+        total_collected = total_repaid_principal + total_repaid_interest
+        total_original = loans_df['Original Loan Balance'].sum()
+        collection_rate = total_collected / total_original if total_original > 0 else 0
+        
+        # Display historical metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Total Principal Repaid", format_currency(total_repaid_principal))
+        with col2:
+            st.metric("Total Interest Earned", format_currency(total_repaid_interest))
+        with col3:
+            st.metric("Total Collections", format_currency(total_collected))
+        with col4:
+            st.metric("Collection Rate", format_percent(collection_rate))
         
         # Display active loans table
         st.markdown("<h2 style='color: #FDB813; margin-top: 2rem;'>💰 Active Loans Detail</h2>", unsafe_allow_html=True)
@@ -975,28 +1006,6 @@ if master_file:
             except Exception as e:
                 st.error(f"Error creating cashflow vs premium analysis: {str(e)}")
                 st.info("Please check that both loan cashflow data and life settlement premium data are properly loaded.")
-
-        # Closed Loans Summary Section (NEW)
-        st.markdown("<h2 style='color: #FDB813; margin-top: 3rem;'>📊 Closed Loans Summary</h2>", unsafe_allow_html=True)
-        
-        # Calculate historical metrics
-        total_repaid_principal = loans_df['Total Principal Repaid'].sum()
-        total_repaid_interest = loans_df['Total Interest Repaid'].sum()
-        total_collected = total_repaid_principal + total_repaid_interest
-        total_original = loans_df['Original Loan Balance'].sum()
-        collection_rate = total_collected / total_original if total_original > 0 else 0
-        
-        # Display historical metrics
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Total Principal Repaid", format_currency(total_repaid_principal))
-        with col2:
-            st.metric("Total Interest Earned", format_currency(total_repaid_interest))
-        with col3:
-            st.metric("Total Collections", format_currency(total_collected))
-        with col4:
-            st.metric("Collection Rate", format_percent(collection_rate))
 
         # Display LS data if available (but after all loan data)
         if ls_data:
