@@ -194,35 +194,31 @@ def process_life_settlement_data(ls_file):
         # Log the sheet names found
         st.info(f"Found sheets in LS file: {sheet_names}")
         
-        # Look for sheets with names containing "valuation" and "premium"
+        # Look for sheets - handle names with quotes
         val_sheet = None
         premium_sheet = None
+        val_sheet_name = None
+        premium_sheet_name = None
         
         for sheet_name in sheet_names:
             sheet_lower = sheet_name.lower()
-            if 'valuation' in sheet_lower:
-                val_sheet = ls_wb[sheet_name]
+            # Remove quotes for comparison
+            clean_name = sheet_name.strip("'\"")
+            clean_lower = clean_name.lower()
+            
+            if 'valuation summary' in clean_lower or clean_name == 'Valuation Summary':
+                val_sheet = ls_wb[sheet_name]  # Use original name with quotes
                 val_sheet_name = sheet_name
-            elif 'premium' in sheet_lower:
-                premium_sheet = ls_wb[sheet_name]
+            elif 'premium stream' in clean_lower or clean_name == 'Premium Stream':
+                premium_sheet = ls_wb[sheet_name]  # Use original name with quotes
                 premium_sheet_name = sheet_name
         
         if not val_sheet:
-            # Try exact match
-            if 'Valuation Summary' in sheet_names:
-                val_sheet = ls_wb['Valuation Summary']
-                val_sheet_name = 'Valuation Summary'
-            else:
-                st.error(f"Could not find Valuation sheet. Available sheets: {sheet_names}")
-                return None
+            st.error(f"Could not find Valuation sheet. Available sheets: {sheet_names}")
+            return None
                 
         if not premium_sheet:
-            # Try exact match
-            if 'Premium Stream' in sheet_names:
-                premium_sheet = ls_wb['Premium Stream']
-                premium_sheet_name = 'Premium Stream'
-            else:
-                st.warning("Could not find Premium Stream sheet. Continuing without premium data.")
+            st.warning("Could not find Premium Stream sheet. Continuing without premium data.")
         
         st.info(f"Using sheets: Valuation='{val_sheet_name}', Premium='{premium_sheet_name if premium_sheet else 'None'}'")
         
