@@ -1148,6 +1148,66 @@ if master_file:
                 st.error(f"Error creating cashflow vs premium analysis: {str(e)}")
                 st.info("Please check that both loan cashflow data and life settlement premium data are properly loaded.")
 
+    except Exception as e:
+        st.error(f"Error processing master file: {str(e)}")
+        st.error("Please ensure the Excel file has the expected structure with loan sheets starting with '#'")
+        
+        with st.expander("Debug Information"):
+            st.code(str(e))
+
+else:
+    # Landing page
+    st.markdown("""
+    <div style='text-align: center; padding: 3rem 0;'>
+        <div style='font-size: 5rem; color: #FDB813;'>⚡</div>
+        <h2 style='color: #FFFFFF; margin-top: 1rem;'>Welcome to the Sirocco I LP Portfolio Dashboard</h2>
+        <p style='color: #999999; font-size: 1.2rem; margin-top: 1rem;'>
+            Upload your Master Excel file to begin analyzing your portfolio
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Show expected file structure
+    with st.expander("📋 Expected Excel File Structure"):
+        st.markdown("""
+        <div style='color: #FFFFFF;'>
+        The Master Excel file should contain:
+        
+        **Dashboard sheet**: Summary of all loans
+        
+        **Loan sheets**: Named with # prefix (e.g., #1, #2, etc.)
+        
+        Each loan sheet should have loan information in either:
+        
+        **Format 1** (Data in column B):
+        - A2 or B2: Borrower name
+        - B3: Original loan amount
+        - B4: Annual interest rate
+        - B5: Loan period in months
+        - B6: Payment amount
+        - B7: Loan start date
+        
+        **Format 2** (Data in column C):
+        - A2 or B2: Borrower name
+        - C3: Original loan amount (when B3 contains label)
+        - C4: Annual interest rate
+        - C5: Loan period in months
+        - C6: Payment amount
+        - C7: Loan start date
+        
+        **Amortization schedule** starting from row 11 with columns:
+        - A: Month
+        - B: Repayment number
+        - C: Opening balance
+        - D: Loan repayment
+        - E: Interest charged
+        - F: Capital repaid
+        - G: Closing balance
+        - J: Payment date
+        - K: Amount paid
+        </div>
+        """, unsafe_allow_html=True)
+
 # Footer
 st.markdown("""
 <div style='margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #3d3d3d; text-align: center; color: #666666;'>
