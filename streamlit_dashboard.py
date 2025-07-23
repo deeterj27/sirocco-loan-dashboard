@@ -600,28 +600,33 @@ if master_file:
         
         # Display portfolio summary
         st.markdown("<h2 style='color: #FDB813; margin-top: 2rem;'>📊 Portfolio Summary</h2>", unsafe_allow_html=True)
+        
+        # Calculate all metrics first
+        total_original = loans_df['Original Loan Balance'].sum()
+        active_orig_balance = active_loans['Original Loan Balance'].sum()
+        active_current_balance = active_loans['Current Loan Balance'].sum()
+        total_repaid_principal = loans_df['Total Principal Repaid'].sum()
+        total_repaid_interest = loans_df['Total Interest Repaid'].sum()
+        total_collected = total_repaid_principal + total_repaid_interest
+        collection_rate = total_collected / total_original if total_original > 0 else 0
+        
+        # Portfolio Overview Row
+        st.markdown("<h3 style='color: #FFFFFF; margin-top: 1rem;'>Portfolio Overview</h3>", unsafe_allow_html=True)
         col1, col2, col3, col4 = st.columns(4)
         
-        total_original = loans_df['Original Loan Balance'].sum()
-        
         with col1:
-            st.metric("Total Original Balance", format_currency(total_original))
-        with col2:
             st.metric("Active Loans", len(active_loans))
-        with col3:
+        with col2:
             st.metric("Closed Loans", len(closed_loans))
-        with col4:
+        with col3:
             st.metric("Not Started", len(not_started_loans))
+        with col4:
             st.metric("Total Loans", len(loans_df))
         
-        # NEW: Active Loans Summary Section
+        # Active Loans Summary Row
+        st.markdown("<h3 style='color: #FFFFFF; margin-top: 1.5rem;'>Active Loans Summary</h3>", unsafe_allow_html=True)
+        
         if len(active_loans) > 0:
-            st.markdown("<h2 style='color: #FDB813; margin-top: 2rem;'>📈 Active Loans Summary</h2>", unsafe_allow_html=True)
-            
-            # Calculate active loans metrics
-            active_orig_balance = active_loans['Original Loan Balance'].sum()
-            active_current_balance = active_loans['Current Loan Balance'].sum()
-            
             # Calculate weighted average interest rate
             active_loans['Weighted_Rate'] = active_loans['Original Loan Balance'] * active_loans['Annual Interest Rate']
             weighted_avg_rate = active_loans['Weighted_Rate'].sum() / active_orig_balance if active_orig_balance > 0 else 0
@@ -636,13 +641,12 @@ if master_file:
             valid_maturities = active_loans[active_loans['Maturity Date'] > today]['Maturity Date']
             
             if len(valid_maturities) > 0:
-                avg_months_to_maturity = (valid_maturities - today).dt.days.mean() / 30.44  # Average days per month
+                avg_months_to_maturity = (valid_maturities - today).dt.days.mean() / 30.44
                 avg_years_to_maturity = avg_months_to_maturity / 12
             else:
                 avg_months_to_maturity = 0
                 avg_years_to_maturity = 0
             
-            # Display active loans summary metrics
             col1, col2, col3, col4, col5 = st.columns(5)
             
             with col1:
@@ -657,6 +661,24 @@ if master_file:
             with col5:
                 st.metric("Avg Maturity", f"{avg_years_to_maturity:.1f} years")
                 st.metric("", f"({avg_months_to_maturity:.0f} months)")
+        else:
+            st.info("No active loans in portfolio")
+        
+        # Closed Loans Summary Row
+        st.markdown("<h3 style='color: #FFFFFF; margin-top: 1.5rem;'>Historical Performance</h3>", unsafe_allow_html=True)
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Total Principal Repaid", format_currency(total_repaid_principal))
+        with col2:
+            st.metric("Total Interest Earned", format_currency(total_repaid_interest))
+        with col3:
+            st.metric("Total Collections", format_currency(total_collected))
+        with col4:
+            st.metric("Collection Rate", format_percent(collection_rate))
+        
+        # Active Loans Breakdown
+        if len(active_loans) > 0:
             
             # Additional active loans insights
             st.markdown("<h3 style='color: #FFFFFF; margin-top: 1rem;'>Active Loans Breakdown</h3>", unsafe_allow_html=True)
@@ -706,28 +728,6 @@ if master_file:
                                    f"<span style='color: #FDB813;'>{category}:</span>"
                                    f"<span style='color: #FFFFFF; font-weight: 600;'>{count} loans</span>"
                                    f"</div>", unsafe_allow_html=True)
-        
-        # Closed Loans Summary Section (MOVED HERE)
-        st.markdown("<h2 style='color: #FDB813; margin-top: 2rem;'>📊 Closed Loans Summary</h2>", unsafe_allow_html=True)
-        
-        # Calculate historical metrics
-        total_repaid_principal = loans_df['Total Principal Repaid'].sum()
-        total_repaid_interest = loans_df['Total Interest Repaid'].sum()
-        total_collected = total_repaid_principal + total_repaid_interest
-        total_original = loans_df['Original Loan Balance'].sum()
-        collection_rate = total_collected / total_original if total_original > 0 else 0
-        
-        # Display historical metrics
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Total Principal Repaid", format_currency(total_repaid_principal))
-        with col2:
-            st.metric("Total Interest Earned", format_currency(total_repaid_interest))
-        with col3:
-            st.metric("Total Collections", format_currency(total_collected))
-        with col4:
-            st.metric("Collection Rate", format_percent(collection_rate))
         
         # Display active loans table
         st.markdown("<h2 style='color: #FDB813; margin-top: 2rem;'>💰 Active Loans Detail</h2>", unsafe_allow_html=True)
