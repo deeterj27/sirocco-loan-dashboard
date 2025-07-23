@@ -6,6 +6,12 @@ from dateutil.relativedelta import relativedelta
 import numpy as np
 import os
 
+try:
+    import plotly.graph_objects as go
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
+
 st.set_page_config(page_title="Sirocco I LP Portfolio Dashboard", layout="wide", initial_sidebar_state="expanded")
 
 # Custom CSS for Sirocco branding
