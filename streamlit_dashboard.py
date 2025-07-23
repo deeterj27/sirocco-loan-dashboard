@@ -201,15 +201,14 @@ def process_life_settlement_data(ls_file):
         premium_sheet_name = None
         
         for sheet_name in sheet_names:
-            sheet_lower = sheet_name.lower()
             # Remove quotes for comparison
             clean_name = sheet_name.strip("'\"")
             clean_lower = clean_name.lower()
             
-            if 'valuation summary' in clean_lower or clean_name == 'Valuation Summary':
+            if 'valuation summary' in clean_lower:
                 val_sheet = ls_wb[sheet_name]  # Use original name with quotes
                 val_sheet_name = sheet_name
-            elif 'premium stream' in clean_lower or clean_name == 'Premium Stream':
+            elif 'premium stream' in clean_lower:
                 premium_sheet = ls_wb[sheet_name]  # Use original name with quotes
                 premium_sheet_name = sheet_name
         
@@ -224,15 +223,6 @@ def process_life_settlement_data(ls_file):
         
         policies = []
         
-        # Check headers in row 2
-        headers_row2 = []
-        for col in range(1, 30):  # Check first 30 columns
-            cell_value = val_sheet.cell(row=2, column=col).value
-            if cell_value:
-                headers_row2.append((col, str(cell_value)))
-        
-        st.info(f"Headers found in row 2: {headers_row2[:10]}...")  # Show first 10
-        
         # Process Valuation Summary sheet starting from row 3
         policies_found = 0
         for row in range(3, 200):
@@ -244,9 +234,27 @@ def process_life_settlement_data(ls_file):
             policies_found += 1
             
             try:
-                # Try to extract data from known column positions
-                # Based on typical LS portfolio structure:
-                # A=Policy ID, B=Insured ID, C=Name, E=Age, F=Gender, U=NDB, Y=Valuation, Z=Purchase Price/Cost Basis
+                # Debug NDB value
+                ndb_raw = val_sheet.cell(row=row, column=21).value  # Column U
+                if policies_found <= 3:  # Debug first 3 rows
+                    st.info(f"Row {row} - Raw NDB value: '{ndb_raw}' (type: {type(ndb_raw)})")
+                
+                # Clean and convert NDB value
+                ndb_value = 0
+                if ndb_raw is not None:
+                    if isinstance(ndb_raw, (int, float)):
+                        ndb_value = float(ndb_raw)
+                    else:
+                        # Handle string values with various formats
+                        ndb_str = str(ndb_raw).strip()
+                        # Remove currency symbols and spaces
+                        ndb_str = ndb_str.replace('$', '').replace(' ', '').replace(',', '')
+                        # Remove any trailing text
+                        ndb_str = ndb_str.split()[0] if ndb_str else '0'
+                        try:
+                            ndb_value = float(ndb_str)
+                        except:
+                            ndb_value = 0
                 
                 policy_data = {
                     'Policy_ID': str(policy_id_cell.value),
@@ -254,26 +262,35 @@ def process_life_settlement_data(ls_file):
                     'Name': str(val_sheet.cell(row=row, column=3).value or ''),  # C
                     'Age': safe_float(val_sheet.cell(row=row, column=5).value),  # E
                     'Gender': str(val_sheet.cell(row=row, column=6).value or ''),  # F
-                    'NDB': 0,  # Will try multiple locations
+                    'NDB': ndb_value,
                     'Valuation': 0,
                     'Cost_Basis': 0,
                     'Remaining_LE': 0,
                 }
                 
-                # Try to find NDB in column U (21) or look for it by header
-                ndb_value = val_sheet.cell(row=row, column=21).value  # Column U
-                if ndb_value:
-                    policy_data['NDB'] = safe_float(str(ndb_value).replace('$', '').replace(',', '').replace(' ', ''))
-                
                 # Try to find Valuation in column Y (25)
-                val_value = val_sheet.cell(row=row, column=25).value  # Column Y
-                if val_value:
-                    policy_data['Valuation'] = safe_float(str(val_value).replace('$', '').replace(',', '').replace(' ', ''))
+                val_raw = val_sheet.cell(row=row, column=25).value  # Column Y
+                if val_raw is not None:
+                    if isinstance(val_raw, (int, float)):
+                        policy_data['Valuation'] = float(val_raw)
+                    else:
+                        val_str = str(val_raw).replace('$', '').replace(' ', '').replace(',', '')
+                        try:
+                            policy_data['Valuation'] = float(val_str)
+                        except:
+                            policy_data['Valuation'] = 0
                 
                 # Try to find Cost Basis in column Z (26)
-                cost_value = val_sheet.cell(row=row, column=26).value  # Column Z
-                if cost_value:
-                    policy_data['Cost_Basis'] = safe_float(str(cost_value).replace('$', '').replace(',', '').replace(' ', ''))
+                cost_raw = val_sheet.cell(row=row, column=26).value  # Column Z
+                if cost_raw is not None:
+                    if isinstance(cost_raw, (int, float)):
+                        policy_data['Cost_Basis'] = float(cost_raw)
+                    else:
+                        cost_str = str(cost_raw).replace('$', '').replace(' ', '').replace(',', '')
+                        try:
+                            policy_data['Cost_Basis'] = float(cost_str)
+                        except:
+                            policy_data['Cost_Basis'] = 0
                 
                 # Debug first policy
                 if policies_found == 1:
@@ -291,15 +308,6 @@ def process_life_settlement_data(ls_file):
         
         if len(policies) == 0:
             st.error("No valid policies found. Please check that the file contains policy data with NDB values.")
-            # Show sample of data to help debug
-            sample_data = []
-            for row in range(3, min(8, 200)):
-                row_data = []
-                for col in [1, 3, 5, 6, 21, 25, 26]:  # A, C, E, F, U, Y, Z
-                    cell_value = val_sheet.cell(row=row, column=col).value
-                    row_data.append(str(cell_value)[:20] if cell_value else 'None')
-                sample_data.append(f"Row {row}: {row_data}")
-            st.error(f"Sample data:\n" + "\n".join(sample_data))
             return None
         
         # Calculate summary statistics
@@ -328,8 +336,6 @@ def process_life_settlement_data(ls_file):
                     if cell_value and '-' in str(cell_value):
                         month_headers.append((col, str(cell_value)))
                 
-                st.info(f"Found {len(month_headers)} month columns in Premium Stream")
-                
                 # Process first 12 months
                 for col_idx, month_name in month_headers[:12]:
                     month_total = 0
@@ -350,6 +356,19 @@ def process_life_settlement_data(ls_file):
         total_annual_premiums = sum(monthly_premiums.values())
         premiums_as_pct_face = (total_annual_premiums / total_ndb) * 100 if total_ndb > 0 else 0
         
+        # Process Remaining LE
+        for i, policy in enumerate(policies):
+            try:
+                # Try column AB (28) then AC (29)
+                le_value = val_sheet.cell(row=i+3, column=28).value or val_sheet.cell(row=i+3, column=29).value
+                if le_value:
+                    policy['Remaining_LE'] = safe_float(le_value)
+            except:
+                pass
+        
+        valid_les = [p['Remaining_LE'] for p in policies if p['Remaining_LE'] > 0]
+        avg_remaining_le = sum(valid_les) / len(valid_les) if valid_les else 0
+        
         st.success(f"✅ Successfully loaded {total_policies} LS policies with ${total_ndb:,.0f} total face value")
         
         return {
@@ -363,7 +382,7 @@ def process_life_settlement_data(ls_file):
                 'male_count': male_count,
                 'female_count': female_count,
                 'male_percentage': male_percentage,
-                'avg_remaining_le': 0,  # Not calculated for now
+                'avg_remaining_le': avg_remaining_le,
                 'total_annual_premiums': total_annual_premiums,
                 'premiums_as_pct_face': premiums_as_pct_face,
             },
