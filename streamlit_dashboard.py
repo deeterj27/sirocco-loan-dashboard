@@ -187,158 +187,139 @@ def get_cell_value(sheet, locations, default=None):
 def process_life_settlement_data(ls_file):
     """Process Life Settlement Excel file and return summary data"""
     try:
-        ls_wb = load_workbook(ls_file, data_only=True)
+        # Read the Excel file using pandas for better compatibility
+        import pandas as pd
         
-        # Debug: Show all sheet names
-        st.info(f"Found sheets in LS file: {ls_wb.sheetnames}")
+        # Read all sheets to check what's available
+        xl_file = pd.ExcelFile(ls_file)
+        sheet_names = xl_file.sheet_names
         
-        if 'Valuation Summary' not in ls_wb.sheetnames or 'Premium Stream' not in ls_wb.sheetnames:
-            st.error(f"Required sheets not found. Found sheets: {ls_wb.sheetnames}")
+        st.info(f"Found sheets: {sheet_names}")
+        
+        # Check for required sheets (case-insensitive)
+        val_sheet_name = None
+        prem_sheet_name = None
+        
+        for sheet in sheet_names:
+            if 'valuation' in sheet.lower() and 'summary' in sheet.lower():
+                val_sheet_name = sheet
+            elif 'premium' in sheet.lower() and 'stream' in sheet.lower():
+                prem_sheet_name = sheet
+        
+        if not val_sheet_name or not prem_sheet_name:
+            st.error(f"Required sheets not found. Looking for 'Valuation Summary' and 'Premium Stream'")
             return None
         
-        val_sheet = ls_wb['Valuation Summary']
-        premium_sheet = ls_wb['Premium Stream']
+        # Read the valuation summary sheet
+        val_df = pd.read_excel(ls_file, sheet_name=val_sheet_name, header=1)  # Assuming headers in row 2
         
-        # Debug: Check headers
-        st.info(f"Valuation Summary A2: {val_sheet['A2'].value}, B2: {val_sheet['B2'].value}")
-        st.info(f"Premium Stream A2: {premium_sheet['A2'].value}, B2: {premium_sheet['B2'].value}")
+        # Display first few columns to debug
+        st.info(f"Valuation columns: {list(val_df.columns[:10])}")
         
-        policies = []
+        # Find the right columns (case-insensitive search)
+        col_mapping = {}
+        for col in val_df.columns:
+            col_lower = str(col).lower()
+            if 'policy' in col_lower and 'id' in col_lower:
+                col_mapping['Policy_ID'] = col
+            elif col_lower == 'ndb' or 'ndb' in col_lower:
+                col_mapping['NDB'] = col
+            elif 'valuation' in col_lower and 'date' not in col_lower:
+                col_mapping['Valuation'] = col
+            elif 'purchase' in col_lower and 'price' in col_lower:
+                col_mapping['Cost_Basis'] = col
+            elif col_lower == 'name':
+                col_mapping['Name'] = col
+            elif col_lower == 'age':
+                col_mapping['Age'] = col
+            elif col_lower == 'gender':
+                col_mapping['Gender'] = col
         
-        # Process Valuation Summary sheet
-        # Headers are in row 2, data starts from row 3
-        row_count = 0
-        for row in range(3, 200):
-            policy_id_cell = val_sheet[f'A{row}']  # Policy ID is in column A
-            if not policy_id_cell.value:
-                break
+        st.info(f"Column mapping found: {col_mapping}")
+        
+        # If NDB not found, try column U (column 20)
+        if 'NDB' not in col_mapping and len(val_df.columns) > 20:
+            col_mapping['NDB'] = val_df.columns[20]  # Column U
             
-            row_count += 1
-                
+        # If still missing critical columns, show what we have
+        if 'NDB' not in col_mapping:
+            st.error(f"Cannot find NDB column. Available columns: {list(val_df.columns)}")
+            return None
+            
+        # Process policies
+        policies = []
+        for idx, row in val_df.iterrows():
             try:
-                # Debug first row
-                if row == 3:
-                    st.info(f"First data row - A3: {val_sheet['A3'].value}, U3: {val_sheet['U3'].value}, Y3: {val_sheet['Y3'].value}")
-                
-                # Get Calc LE value - try column AB first, then AC
-                calc_le_value = val_sheet[f'AB{row}'].value
-                if calc_le_value is None or calc_le_value == '':
-                    calc_le_value = val_sheet[f'AC{row}'].value
-                
-                # Parse NDB value
-                ndb_raw = val_sheet[f'U{row}'].value
-                if ndb_raw is not None:
-                    ndb_str = str(ndb_raw).replace('$', '').replace(',', '').replace(' ', '').strip()
-                    ndb_value = safe_float(ndb_str)
+                # Get NDB value
+                ndb_val = row.get(col_mapping.get('NDB', 'NDB'), 0)
+                if pd.isna(ndb_val) or ndb_val == 0:
+                    continue
+                    
+                # Clean NDB value
+                if isinstance(ndb_val, str):
+                    ndb_val = float(str(ndb_val).replace('$', '').replace(',', '').replace(' ', ''))
                 else:
-                    ndb_value = 0
+                    ndb_val = float(ndb_val)
                 
-                policy_data = {
-                    'Policy_ID': str(policy_id_cell.value),
-                    'Insured_ID': str(val_sheet[f'B{row}'].value or ''),
-                    'Name': str(val_sheet[f'C{row}'].value or ''),
-                    'Age': safe_float(val_sheet[f'E{row}'].value),
-                    'Gender': str(val_sheet[f'F{row}'].value or ''),
-                    'NDB': ndb_value,
-                    'Valuation': safe_float(str(val_sheet[f'Y{row}'].value or '0').replace('$', '').replace(',', '').replace(' ', '')),
-                    'Cost_Basis': safe_float(str(val_sheet[f'Z{row}'].value or '0').replace('$', '').replace(',', '').replace(' ', '')),
-                    'Remaining_LE': safe_float(calc_le_value) if calc_le_value else 0,
+                policy = {
+                    'Policy_ID': str(row.get(col_mapping.get('Policy_ID', 'Policy ID'), idx)),
+                    'Name': str(row.get(col_mapping.get('Name', 'Name'), '')),
+                    'Age': float(row.get(col_mapping.get('Age', 'Age'), 0)),
+                    'Gender': str(row.get(col_mapping.get('Gender', 'Gender'), '')),
+                    'NDB': ndb_val,
+                    'Valuation': safe_float(row.get(col_mapping.get('Valuation', 'Valuation'), 0)),
+                    'Cost_Basis': safe_float(row.get(col_mapping.get('Cost_Basis', 'Purchase Price'), 0)),
+                    'Remaining_LE': 0,  # Will calculate separately
+                    'Annual_Premium': 0,
+                    'Premium_Pct_Face': 0
                 }
                 
-                # Only add policies with valid NDB
-                if policy_data['NDB'] > 0:
-                    policies.append(policy_data)
+                if policy['NDB'] > 0:
+                    policies.append(policy)
                     
             except Exception as e:
-                st.warning(f"Error processing row {row}: {str(e)}")
                 continue
         
-        st.info(f"Processed {row_count} rows, found {len(policies)} valid policies")
-        
         if len(policies) == 0:
-            st.error("No valid policies found. Check that NDB values are present in column U.")
+            st.error("No valid policies found with NDB > 0")
             return None
-        
-        # Calculate summary statistics
+            
+        # Calculate summary
         total_policies = len(policies)
         total_ndb = sum(p['NDB'] for p in policies)
         total_valuation = sum(p['Valuation'] for p in policies)
         total_cost_basis = sum(p['Cost_Basis'] for p in policies)
         
-        valid_ages = [p['Age'] for p in policies if p['Age'] > 0]
-        avg_age = sum(valid_ages) / len(valid_ages) if valid_ages else 0
+        # Demographics
+        ages = [p['Age'] for p in policies if p['Age'] > 0]
+        avg_age = sum(ages) / len(ages) if ages else 0
         
-        male_count = sum(1 for p in policies if 'male' in str(p['Gender']).lower() and 'female' not in str(p['Gender']).lower())
-        female_count = sum(1 for p in policies if 'female' in str(p['Gender']).lower())
-        male_percentage = (male_count / (male_count + female_count)) * 100 if (male_count + female_count) > 0 else 0
+        male_count = sum(1 for p in policies if 'male' in p['Gender'].lower() and 'female' not in p['Gender'].lower())
+        female_count = sum(1 for p in policies if 'female' in p['Gender'].lower())
+        male_percentage = (male_count / total_policies * 100) if total_policies > 0 else 0
         
-        valid_les = [p['Remaining_LE'] for p in policies if p['Remaining_LE'] > 0]
-        avg_remaining_le = sum(valid_les) / len(valid_les) if valid_les else 0
-        
-        # Process monthly premiums from Premium Stream sheet
+        # Try to read premium stream
         monthly_premiums = {}
-        policy_premiums = {}
-        
-        # Premium columns start at column L (index 11) based on the structure
-        # Get month headers from row 2
-        month_headers = []
-        col_index = 11  # Start at column L
-        
-        # Debug premium headers
-        st.info(f"Looking for premium columns starting at column L (index 11)")
-        
-        while col_index < 50:  # Check first 50 columns
-            try:
-                cell = premium_sheet.cell(row=2, column=col_index+1)  # openpyxl uses 1-based indexing
-                if cell.value and '-' in str(cell.value):
-                    month_headers.append((col_index, str(cell.value)))
-                    if len(month_headers) <= 3:  # Show first few headers
-                        st.info(f"Found month header at column {col_index}: {cell.value}")
-            except:
-                break
-            col_index += 1
-        
-        st.info(f"Found {len(month_headers)} month columns")
+        try:
+            prem_df = pd.read_excel(ls_file, sheet_name=prem_sheet_name, header=1)
             
-        # Read premium data
-        for month_col, month_name in month_headers[:12]:  # Process first 12 months
-            month_total = 0
-            for prem_row in range(3, min(200, len(policies) + 3)):
-                try:
-                    lyric_id_cell = premium_sheet.cell(row=prem_row, column=1)  # Column A - Lyric ID
-                    if lyric_id_cell.value:
-                        lyric_id = str(lyric_id_cell.value)
-                        premium_cell = premium_sheet.cell(row=prem_row, column=month_col+1)
-                        premium_val = safe_float(premium_cell.value) if premium_cell.value else 0
-                        month_total += premium_val
-                        
-                        if lyric_id not in policy_premiums:
-                            policy_premiums[lyric_id] = {}
-                        policy_premiums[lyric_id][month_name] = premium_val
-                except:
-                    continue
+            # Find month columns (they should contain month-year pattern)
+            month_cols = []
+            for col in prem_df.columns:
+                if isinstance(col, str) and '-' in col and any(month in col for month in ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']):
+                    month_cols.append(col)
             
-            if month_total > 0:
-                monthly_premiums[month_name] = month_total
-        
-        # Calculate policy-level metrics
-        for policy in policies:
-            policy_id = policy['Policy_ID']
-            if policy_id in policy_premiums:
-                annual_premium = sum(policy_premiums[policy_id].values())
-                policy['Annual_Premium'] = annual_premium
-                if policy['NDB'] > 0:
-                    policy['Premium_Pct_Face'] = (annual_premium / policy['NDB']) * 100
-                else:
-                    policy['Premium_Pct_Face'] = 0
-            else:
-                policy['Annual_Premium'] = 0
-                policy['Premium_Pct_Face'] = 0
+            # Sum premiums by month
+            for month_col in month_cols[:12]:  # First 12 months
+                monthly_premiums[month_col] = prem_df[month_col].sum()
+                
+        except:
+            st.warning("Could not process premium stream data")
         
         total_annual_premiums = sum(monthly_premiums.values())
-        premiums_as_pct_face = (total_annual_premiums / total_ndb) * 100 if total_ndb > 0 else 0
+        premiums_as_pct_face = (total_annual_premiums / total_ndb * 100) if total_ndb > 0 else 0
         
-        st.success(f"Successfully processed LS data: {total_policies} policies, ${total_ndb:,.2f} face value")
+        st.success(f"Successfully loaded {total_policies} policies with ${total_ndb:,.0f} total face value")
         
         return {
             'policies': policies,
@@ -351,12 +332,12 @@ def process_life_settlement_data(ls_file):
                 'male_count': male_count,
                 'female_count': female_count,
                 'male_percentage': male_percentage,
-                'avg_remaining_le': avg_remaining_le,
+                'avg_remaining_le': 0,  # Not calculating for now
                 'total_annual_premiums': total_annual_premiums,
                 'premiums_as_pct_face': premiums_as_pct_face,
             },
             'monthly_premiums': monthly_premiums,
-            'policy_premiums': policy_premiums
+            'policy_premiums': {}
         }
         
     except Exception as e:
