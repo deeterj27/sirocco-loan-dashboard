@@ -139,15 +139,15 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Helper functions
-def safe_float(val):
+def safe_float(value):
+    """Safely convert a value to float"""
     try:
-        if val is None or val == '':
-            return 0.0
-        if isinstance(val, (int, float)):
-            return float(val)
-        val = str(val).replace('$', '').replace(',', '').replace(' ', '')
-        return float(val)
-    except Exception:
+        if isinstance(value, str):
+            if value.lower() in ['interest only', 'n/a', '']:
+                return 0.0
+            value = value.replace('$', '').replace(',', '')
+        return float(value)
+    except (ValueError, TypeError):
         return 0.0
 
 def excel_date_to_datetime(serial_date):
@@ -187,139 +187,109 @@ def get_cell_value(sheet, locations, default=None):
 def process_life_settlement_data(ls_file):
     """Process Life Settlement Excel file and return summary data"""
     try:
-        # Read the Excel file using pandas for better compatibility
-        import pandas as pd
+        ls_wb = load_workbook(ls_file, data_only=True)
         
-        # Read all sheets to check what's available
-        xl_file = pd.ExcelFile(ls_file)
-        sheet_names = xl_file.sheet_names
-        
-        st.info(f"Found sheets: {sheet_names}")
-        
-        # Check for required sheets (case-insensitive)
-        val_sheet_name = None
-        prem_sheet_name = None
-        
-        for sheet in sheet_names:
-            if 'valuation' in sheet.lower() and 'summary' in sheet.lower():
-                val_sheet_name = sheet
-            elif 'premium' in sheet.lower() and 'stream' in sheet.lower():
-                prem_sheet_name = sheet
-        
-        if not val_sheet_name or not prem_sheet_name:
-            st.error(f"Required sheets not found. Looking for 'Valuation Summary' and 'Premium Stream'")
+        if 'Valuation Summary' not in ls_wb.sheetnames or 'Premium Stream' not in ls_wb.sheetnames:
             return None
         
-        # Read the valuation summary sheet
-        val_df = pd.read_excel(ls_file, sheet_name=val_sheet_name, header=1)  # Assuming headers in row 2
+        val_sheet = ls_wb['Valuation Summary']
+        premium_sheet = ls_wb['Premium Stream']
         
-        # Display first few columns to debug
-        st.info(f"Valuation columns: {list(val_df.columns[:10])}")
-        
-        # Find the right columns (case-insensitive search)
-        col_mapping = {}
-        for col in val_df.columns:
-            col_lower = str(col).lower()
-            if 'policy' in col_lower and 'id' in col_lower:
-                col_mapping['Policy_ID'] = col
-            elif col_lower == 'ndb' or 'ndb' in col_lower:
-                col_mapping['NDB'] = col
-            elif 'valuation' in col_lower and 'date' not in col_lower:
-                col_mapping['Valuation'] = col
-            elif 'purchase' in col_lower and 'price' in col_lower:
-                col_mapping['Cost_Basis'] = col
-            elif col_lower == 'name':
-                col_mapping['Name'] = col
-            elif col_lower == 'age':
-                col_mapping['Age'] = col
-            elif col_lower == 'gender':
-                col_mapping['Gender'] = col
-        
-        st.info(f"Column mapping found: {col_mapping}")
-        
-        # If NDB not found, try column U (column 20)
-        if 'NDB' not in col_mapping and len(val_df.columns) > 20:
-            col_mapping['NDB'] = val_df.columns[20]  # Column U
-            
-        # If still missing critical columns, show what we have
-        if 'NDB' not in col_mapping:
-            st.error(f"Cannot find NDB column. Available columns: {list(val_df.columns)}")
-            return None
-            
-        # Process policies
         policies = []
-        for idx, row in val_df.iterrows():
+        
+        # Process Valuation Summary sheet
+        # Headers are in row 2, data starts from row 3
+        for row in range(3, 200):
+            policy_id_cell = val_sheet[f'A{row}']  # Policy ID is in column A
+            if not policy_id_cell.value:
+                break
+                
             try:
-                # Get NDB value
-                ndb_val = row.get(col_mapping.get('NDB', 'NDB'), 0)
-                if pd.isna(ndb_val) or ndb_val == 0:
-                    continue
-                    
-                # Clean NDB value
-                if isinstance(ndb_val, str):
-                    ndb_val = float(str(ndb_val).replace('$', '').replace(',', '').replace(' ', ''))
-                else:
-                    ndb_val = float(ndb_val)
-                
-                policy = {
-                    'Policy_ID': str(row.get(col_mapping.get('Policy_ID', 'Policy ID'), idx)),
-                    'Name': str(row.get(col_mapping.get('Name', 'Name'), '')),
-                    'Age': float(row.get(col_mapping.get('Age', 'Age'), 0)),
-                    'Gender': str(row.get(col_mapping.get('Gender', 'Gender'), '')),
-                    'NDB': ndb_val,
-                    'Valuation': safe_float(row.get(col_mapping.get('Valuation', 'Valuation'), 0)),
-                    'Cost_Basis': safe_float(row.get(col_mapping.get('Cost_Basis', 'Purchase Price'), 0)),
-                    'Remaining_LE': 0,  # Will calculate separately
-                    'Annual_Premium': 0,
-                    'Premium_Pct_Face': 0
+                policy_data = {
+                    'Policy_ID': str(policy_id_cell.value),
+                    'Insured_ID': str(val_sheet[f'B{row}'].value or ''),  # Column B
+                    'Name': str(val_sheet[f'C{row}'].value or ''),  # Column C
+                    'Age': safe_float(val_sheet[f'E{row}'].value),  # Column E
+                    'Gender': str(val_sheet[f'F{row}'].value or ''),  # Column F
+                    'NDB': safe_float(str(val_sheet[f'U{row}'].value or '0').replace('$', '').replace(',', '').strip()),  # Column U
+                    'Valuation': safe_float(str(val_sheet[f'Y{row}'].value or '0').replace('$', '').replace(',', '').strip()),  # Column Y
+                    'Cost_Basis': safe_float(str(val_sheet[f'Z{row}'].value or '0').replace('$', '').replace(',', '').strip()),  # Column Z (Purchase Price)
+                    'Remaining_LE': safe_float(val_sheet[f'AB{row}'].value or val_sheet[f'AC{row}'].value),  # Column AB or AC (Calc LE)
                 }
-                
-                if policy['NDB'] > 0:
-                    policies.append(policy)
-                    
-            except Exception as e:
+                policies.append(policy_data)
+            except:
                 continue
         
         if len(policies) == 0:
-            st.error("No valid policies found with NDB > 0")
             return None
-            
-        # Calculate summary
+        
+        # Calculate summary statistics
         total_policies = len(policies)
         total_ndb = sum(p['NDB'] for p in policies)
         total_valuation = sum(p['Valuation'] for p in policies)
         total_cost_basis = sum(p['Cost_Basis'] for p in policies)
         
-        # Demographics
-        ages = [p['Age'] for p in policies if p['Age'] > 0]
-        avg_age = sum(ages) / len(ages) if ages else 0
+        valid_ages = [p['Age'] for p in policies if p['Age'] > 0]
+        avg_age = sum(valid_ages) / len(valid_ages) if valid_ages else 0
         
         male_count = sum(1 for p in policies if 'male' in p['Gender'].lower() and 'female' not in p['Gender'].lower())
         female_count = sum(1 for p in policies if 'female' in p['Gender'].lower())
-        male_percentage = (male_count / total_policies * 100) if total_policies > 0 else 0
+        male_percentage = (male_count / (male_count + female_count)) * 100 if (male_count + female_count) > 0 else 0
         
-        # Try to read premium stream
+        valid_les = [p['Remaining_LE'] for p in policies if p['Remaining_LE'] > 0]
+        avg_remaining_le = sum(valid_les) / len(valid_les) if valid_les else 0
+        
+        # Process monthly premiums from Premium Stream sheet
         monthly_premiums = {}
-        try:
-            prem_df = pd.read_excel(ls_file, sheet_name=prem_sheet_name, header=1)
+        policy_premiums = {}
+        
+        # Premium columns start at column L (index 11) based on the structure
+        # Get month headers from row 2
+        month_headers = []
+        col_index = 11  # Start at column L
+        
+        while col_index < 300:  # Check many columns as there are many months
+            cell = premium_sheet.cell(row=2, column=col_index+1)  # openpyxl uses 1-based indexing
+            if cell.value and isinstance(cell.value, str) and '-' in str(cell.value):
+                month_headers.append((col_index, str(cell.value)))
+            col_index += 1
             
-            # Find month columns (they should contain month-year pattern)
-            month_cols = []
-            for col in prem_df.columns:
-                if isinstance(col, str) and '-' in col and any(month in col for month in ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']):
-                    month_cols.append(col)
+        # Read premium data
+        for month_col, month_name in month_headers:
+            month_total = 0
+            for prem_row in range(3, 200):  # Start from row 3
+                try:
+                    lyric_id_cell = premium_sheet.cell(row=prem_row, column=1)  # Column A - Lyric ID
+                    if lyric_id_cell.value:
+                        lyric_id = str(lyric_id_cell.value)
+                        premium_cell = premium_sheet.cell(row=prem_row, column=month_col+1)
+                        premium_val = safe_float(premium_cell.value) if premium_cell.value else 0
+                        month_total += premium_val
+                        
+                        if lyric_id not in policy_premiums:
+                            policy_premiums[lyric_id] = {}
+                        policy_premiums[lyric_id][month_name] = premium_val
+                except:
+                    continue
             
-            # Sum premiums by month
-            for month_col in month_cols[:12]:  # First 12 months
-                monthly_premiums[month_col] = prem_df[month_col].sum()
-                
-        except:
-            st.warning("Could not process premium stream data")
+            monthly_premiums[month_name] = month_total
+        
+        # Calculate policy-level metrics
+        for policy in policies:
+            policy_id = policy['Policy_ID']
+            if policy_id in policy_premiums:
+                annual_premium = sum(policy_premiums[policy_id].values())
+                policy['Annual_Premium'] = annual_premium
+                if policy['NDB'] > 0:
+                    policy['Premium_Pct_Face'] = (annual_premium / policy['NDB']) * 100
+                else:
+                    policy['Premium_Pct_Face'] = 0
+            else:
+                policy['Annual_Premium'] = 0
+                policy['Premium_Pct_Face'] = 0
         
         total_annual_premiums = sum(monthly_premiums.values())
-        premiums_as_pct_face = (total_annual_premiums / total_ndb * 100) if total_ndb > 0 else 0
-        
-        st.success(f"Successfully loaded {total_policies} policies with ${total_ndb:,.0f} total face value")
+        premiums_as_pct_face = (total_annual_premiums / total_ndb) * 100 if total_ndb > 0 else 0
         
         return {
             'policies': policies,
@@ -332,19 +302,16 @@ def process_life_settlement_data(ls_file):
                 'male_count': male_count,
                 'female_count': female_count,
                 'male_percentage': male_percentage,
-                'avg_remaining_le': 0,  # Not calculating for now
+                'avg_remaining_le': avg_remaining_le,
                 'total_annual_premiums': total_annual_premiums,
                 'premiums_as_pct_face': premiums_as_pct_face,
             },
             'monthly_premiums': monthly_premiums,
-            'policy_premiums': {}
+            'policy_premiums': policy_premiums
         }
         
-    except Exception as e:
-        st.error(f"Error processing LS file: {str(e)}")
-        import traceback
-        st.error(traceback.format_exc())
-        return None
+    except:
+        return None 
 
 # Main app
 
@@ -644,9 +611,11 @@ if master_file:
         closed_loans = closed_loans.sort_values('Original Loan Balance', ascending=False)
         not_started_loans = not_started_loans.sort_values('Loan Start Date')
         
-        # After processing all loans and creating loans_df, active_loans, closed_loans, not_started_loans
-        # Display overall portfolio summary
-        st.markdown("<h2 style='color: #FDB813; margin-top: 2rem;'>📊 Overall Portfolio Summary</h2>", unsafe_allow_html=True)
+        # Display portfolio summary
+        st.markdown("<h2 style='color: #FDB813; margin-top: 2rem;'>📊 Portfolio Summary</h2>", unsafe_allow_html=True)
+        
+        # Overall Portfolio Summary
+        st.markdown("<h3 style='color: #FFFFFF;'>Overall Portfolio</h3>", unsafe_allow_html=True)
         col1, col2, col3, col4 = st.columns(4)
         
         total_original = loans_df['Original Loan Balance'].sum()
@@ -668,78 +637,110 @@ if master_file:
             st.metric("Collection Rate", format_percent(collection_rate))
             st.metric("Total Loans", len(loans_df))
         
-        # Display active loans section
-        st.markdown("<h2 style='color: #FDB813; margin-top: 3rem;'>💰 Active Loans</h2>", unsafe_allow_html=True)
-        
         # Active Loans Summary
         if len(active_loans) > 0:
-            with st.container():
-                st.markdown("<div style='background-color: #2d2d2d; padding: 1.5rem; border-radius: 10px; margin-bottom: 2rem;'>", unsafe_allow_html=True)
-                st.markdown("<h3 style='color: #FDB813; margin-top: 0;'>Active Loans Summary</h3>", unsafe_allow_html=True)
-                
-                col1, col2, col3, col4, col5 = st.columns(5)
-                
-                active_original_balance = active_loans['Original Loan Balance'].sum()
-                active_current_balance = active_loans['Current Loan Balance'].sum()
-                active_avg_interest = active_loans['Annual Interest Rate'].mean()
-                
-                # Calculate average days to maturity for active loans
-                maturity_dates = pd.to_datetime(active_loans['Maturity Date'])
-                valid_maturity_dates = maturity_dates[maturity_dates.notna()]
-                if len(valid_maturity_dates) > 0:
-                    today = pd.Timestamp.now()
-                    days_to_maturity = (valid_maturity_dates - today).dt.days
-                    avg_days_to_maturity = days_to_maturity[days_to_maturity > 0].mean()
-                    if pd.notna(avg_days_to_maturity):
-                        avg_months_to_maturity = avg_days_to_maturity / 30.44  # Average days in a month
-                    else:
-                        avg_months_to_maturity = 0
+            st.markdown("<h3 style='color: #FFFFFF; margin-top: 2rem;'>Active Loans Summary</h3>", unsafe_allow_html=True)
+            col1, col2, col3, col4, col5 = st.columns(5)
+            
+            active_original_balance = active_loans['Original Loan Balance'].sum()
+            active_current_balance = active_loans['Current Loan Balance'].sum()
+            active_avg_interest = active_loans['Annual Interest Rate'].mean()
+            
+            # Calculate average days to maturity for active loans
+            maturity_dates = pd.to_datetime(active_loans['Maturity Date'])
+            valid_maturity_dates = maturity_dates[maturity_dates.notna()]
+            if len(valid_maturity_dates) > 0:
+                today = pd.Timestamp.now()
+                days_to_maturity = (valid_maturity_dates - today).dt.days
+                avg_days_to_maturity = days_to_maturity[days_to_maturity > 0].mean()
+                if pd.notna(avg_days_to_maturity):
+                    avg_months_to_maturity = avg_days_to_maturity / 30.44  # Average days in a month
                 else:
                     avg_months_to_maturity = 0
-                
-                with col1:
-                    st.metric("Original Balance", format_currency(active_original_balance))
-                with col2:
-                    st.metric("Current Balance", format_currency(active_current_balance))
-                with col3:
-                    st.metric("Avg Interest Rate", format_percent(active_avg_interest))
-                with col4:
-                    st.metric("Avg Maturity", f"{avg_months_to_maturity:.1f} months" if avg_months_to_maturity > 0 else "N/A")
-                with col5:
-                    st.metric("# of Active Loans", len(active_loans))
-                
-                st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                avg_months_to_maturity = 0
+            
+            with col1:
+                st.metric("Original Balance", format_currency(active_original_balance))
+            with col2:
+                st.metric("Current Balance", format_currency(active_current_balance))
+            with col3:
+                st.metric("Avg Interest Rate", format_percent(active_avg_interest))
+            with col4:
+                st.metric("Avg Maturity", f"{avg_months_to_maturity:.1f} months" if avg_months_to_maturity > 0 else "N/A")
+            with col5:
+                st.metric("# of Active Loans", len(active_loans))
+        
+        # Closed Loans Summary
+        if len(closed_loans) > 0:
+            st.markdown("<h3 style='color: #FFFFFF; margin-top: 2rem;'>Closed Loans Summary</h3>", unsafe_allow_html=True)
+            col1, col2, col3, col4, col5 = st.columns(5)
+            
+            closed_original_balance = closed_loans['Original Loan Balance'].sum()
+            closed_principal_repaid = closed_loans['Total Principal Repaid'].sum()
+            closed_interest_earned = closed_loans['Total Interest Repaid'].sum()
+            closed_avg_interest = closed_loans['Annual Interest Rate'].mean()
+            
+            with col1:
+                st.metric("Original Balance", format_currency(closed_original_balance))
+            with col2:
+                st.metric("Principal Repaid", format_currency(closed_principal_repaid))
+            with col3:
+                st.metric("Interest Earned", format_currency(closed_interest_earned))
+            with col4:
+                st.metric("Avg Interest Rate", format_percent(closed_avg_interest))
+            with col5:
+                st.metric("# of Closed Loans", len(closed_loans))
+        
+        # Display active loans
+        st.markdown("<h2 style='color: #FDB813; margin-top: 2rem;'>💰 Active Loans</h2>", unsafe_allow_html=True)
+        
+        display_columns = ['Sheet', 'Borrower', 'Original Loan Balance', 'Current Loan Balance', 
+                          'Total Principal Repaid', 'Total Interest Repaid', 'Last Payment Amount',
+                          'Annual Interest Rate', 'Loan Start Date', 'Maturity Date', 'Notes']
+        
+        active_display = active_loans[display_columns].copy()
+        
+        # Format columns for display
+        for col in ['Original Loan Balance', 'Current Loan Balance', 'Total Principal Repaid', 
+                   'Total Interest Repaid', 'Last Payment Amount']:
+            active_display[col] = active_display[col].apply(format_currency)
+        
+        active_display['Annual Interest Rate'] = active_display['Annual Interest Rate'].apply(format_percent)
+        active_display['Loan Start Date'] = pd.to_datetime(active_display['Loan Start Date']).dt.strftime('%Y-%m-%d')
+        active_display['Maturity Date'] = pd.to_datetime(active_display['Maturity Date']).dt.strftime('%Y-%m-%d')
+        
+        st.dataframe(active_display, use_container_width=True, hide_index=True)
+        
+        # Show loan details in expanders
+        if st.checkbox("Show loan details", key="active_details"):
+            for _, loan in active_loans.iterrows():
+                borrower = loan['Borrower']
+                with st.expander(f"📋 {borrower} - {loan['Sheet']}"):
+                    if borrower in loan_details:
+                        detail_df = loan_details[borrower].copy()
+                        
+                        # Format detail columns
+                        for col in ['Opening Balance', 'Loan Repayment', 'Interest Charged', 
+                                   'Capital Repaid', 'Closing Balance', 'Amount Paid']:
+                            if col in detail_df.columns:
+                                detail_df[col] = detail_df[col].apply(format_currency)
+                        
+                        # Format dates
+                        if 'Month' in detail_df.columns:
+                            detail_df['Month'] = pd.to_datetime(detail_df['Month']).dt.strftime('%Y-%m-%d')
+                        if 'Payment Date' in detail_df.columns:
+                            detail_df['Payment Date'] = pd.to_datetime(detail_df['Payment Date']).dt.strftime('%Y-%m-%d')
+                        
+                        if 'Notes' in detail_df.columns:
+                            detail_df['Notes'] = detail_df['Notes'].fillna('')
+                        
+                        st.dataframe(detail_df, use_container_width=True, hide_index=True)
         
         # Display closed loans
         if len(closed_loans) > 0:
-            st.markdown("<h2 style='color: #FDB813; margin-top: 3rem;'>✅ Closed Loans</h2>", unsafe_allow_html=True)
+            st.markdown("<h2 style='color: #FDB813; margin-top: 2rem;'>✅ Closed Loans</h2>", unsafe_allow_html=True)
             
-            # Closed Loans Summary
-            with st.container():
-                st.markdown("<div style='background-color: #2d2d2d; padding: 1.5rem; border-radius: 10px; margin-bottom: 2rem;'>", unsafe_allow_html=True)
-                st.markdown("<h3 style='color: #FDB813; margin-top: 0;'>Closed Loans Summary</h3>", unsafe_allow_html=True)
-                
-                col1, col2, col3, col4, col5 = st.columns(5)
-                
-                closed_original_balance = closed_loans['Original Loan Balance'].sum()
-                closed_principal_repaid = closed_loans['Total Principal Repaid'].sum()
-                closed_interest_earned = closed_loans['Total Interest Repaid'].sum()
-                closed_avg_interest = closed_loans['Annual Interest Rate'].mean()
-                
-                with col1:
-                    st.metric("Original Balance", format_currency(closed_original_balance))
-                with col2:
-                    st.metric("Principal Repaid", format_currency(closed_principal_repaid))
-                with col3:
-                    st.metric("Interest Earned", format_currency(closed_interest_earned))
-                with col4:
-                    st.metric("Avg Interest Rate", format_percent(closed_avg_interest))
-                with col5:
-                    st.metric("# of Closed Loans", len(closed_loans))
-                
-                st.markdown("</div>", unsafe_allow_html=True)
-            
-            # Closed loans table
             closed_display = closed_loans[display_columns].copy()
             
             for col in ['Original Loan Balance', 'Current Loan Balance', 'Total Principal Repaid', 
