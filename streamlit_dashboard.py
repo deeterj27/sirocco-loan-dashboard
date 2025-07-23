@@ -603,103 +603,26 @@ if master_file:
         col1, col2, col3, col4 = st.columns(4)
         
         total_original = loans_df['Original Loan Balance'].sum()
+        total_repaid_principal = loans_df['Total Principal Repaid'].sum()
+        total_repaid_interest = loans_df['Total Interest Repaid'].sum()
+        total_collected = total_repaid_principal + total_repaid_interest
+        collection_rate = total_collected / total_original if total_original > 0 else 0
         
         with col1:
-            st.metric("Total Original Balance", format_currency(total_original))
-        with col2:
+            st.metric("Total Principal Repaid", format_currency(total_repaid_principal))
             st.metric("Active Loans", len(active_loans))
-        with col3:
+        with col2:
+            st.metric("Total Interest Earned", format_currency(total_repaid_interest))
             st.metric("Closed Loans", len(closed_loans))
-        with col4:
+        with col3:
+            st.metric("Total Collections", format_currency(total_collected))
             st.metric("Not Started", len(not_started_loans))
+        with col4:
+            st.metric("Collection Rate", format_percent(collection_rate))
             st.metric("Total Loans", len(loans_df))
         
-        # NEW: Active Loans Summary Section
-        if len(active_loans) > 0:
-            st.markdown("<h2 style='color: #FDB813; margin-top: 2rem;'>📈 Active Loans Summary</h2>", unsafe_allow_html=True)
-            
-            # Calculate active loans metrics
-            active_orig_balance = active_loans['Original Loan Balance'].sum()
-            active_current_balance = active_loans['Current Loan Balance'].sum()
-            
-            # Calculate weighted average interest rate
-            active_loans['Weighted_Rate'] = active_loans['Original Loan Balance'] * active_loans['Annual Interest Rate']
-            weighted_avg_rate = active_loans['Weighted_Rate'].sum() / active_orig_balance if active_orig_balance > 0 else 0
-            
-            # Count amortizing vs interest only loans
-            amortizing_loans = len(active_loans[~active_loans['Is Interest Only']])
-            interest_only_loans = len(active_loans[active_loans['Is Interest Only']])
-            
-            # Calculate average maturity
-            today = pd.Timestamp.now()
-            active_loans['Maturity Date'] = pd.to_datetime(active_loans['Maturity Date'])
-            valid_maturities = active_loans[active_loans['Maturity Date'] > today]['Maturity Date']
-            
-            if len(valid_maturities) > 0:
-                avg_months_to_maturity = (valid_maturities - today).dt.days.mean() / 30.44  # Average days per month
-                avg_years_to_maturity = avg_months_to_maturity / 12
-            else:
-                avg_months_to_maturity = 0
-                avg_years_to_maturity = 0
-            
-            # Display active loans summary metrics
-            col1, col2, col3, col4, col5 = st.columns(5)
-            
-            with col1:
-                st.metric("Original Balance", format_currency(active_orig_balance))
-            with col2:
-                st.metric("Current Balance", format_currency(active_current_balance))
-            with col3:
-                st.metric("Avg Interest Rate", format_percent(weighted_avg_rate))
-            with col4:
-                st.metric("Amortizing Loans", f"{amortizing_loans}")
-                st.metric("Interest Only", f"{interest_only_loans}")
-            with col5:
-                st.metric("Avg Maturity", f"{avg_years_to_maturity:.1f} years")
-                st.metric("", f"({avg_months_to_maturity:.0f} months)")
-            
-            # Additional active loans insights
-            st.markdown("<h3 style='color: #FFFFFF; margin-top: 1rem;'>Active Loans Breakdown</h3>", unsafe_allow_html=True)
-            
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                # Loan size distribution
-                st.markdown("**Loan Size Distribution**")
-                size_bins = [0, 100000, 250000, 500000, 1000000, float('inf')]
-                size_labels = ['< $100K', '$100K-$250K', '$250K-$500K', '$500K-$1M', '> $1M']
-                active_loans['Size_Category'] = pd.cut(active_loans['Current Loan Balance'], bins=size_bins, labels=size_labels)
-                size_dist = active_loans['Size_Category'].value_counts().sort_index()
-                
-                for category, count in size_dist.items():
-                    st.text(f"{category}: {count} loans")
-            
-            with col2:
-                # Interest rate distribution
-                st.markdown("**Interest Rate Distribution**")
-                rate_bins = [0, 0.05, 0.075, 0.10, 0.125, float('inf')]
-                rate_labels = ['< 5%', '5%-7.5%', '7.5%-10%', '10%-12.5%', '> 12.5%']
-                active_loans['Rate_Category'] = pd.cut(active_loans['Annual Interest Rate'], bins=rate_bins, labels=rate_labels)
-                rate_dist = active_loans['Rate_Category'].value_counts().sort_index()
-                
-                for category, count in rate_dist.items():
-                    st.text(f"{category}: {count} loans")
-            
-            with col3:
-                # Maturity distribution
-                st.markdown("**Maturity Distribution**")
-                active_loans['Months_to_Maturity'] = (active_loans['Maturity Date'] - today).dt.days / 30.44
-                maturity_bins = [0, 6, 12, 24, 36, float('inf')]
-                maturity_labels = ['< 6 months', '6-12 months', '1-2 years', '2-3 years', '> 3 years']
-                active_loans['Maturity_Category'] = pd.cut(active_loans['Months_to_Maturity'], bins=maturity_bins, labels=maturity_labels)
-                maturity_dist = active_loans['Maturity_Category'].value_counts().sort_index()
-                
-                for category, count in maturity_dist.items():
-                    if pd.notna(count):
-                        st.text(f"{category}: {count} loans")
-        
-        # Display active loans table
-        st.markdown("<h2 style='color: #FDB813; margin-top: 2rem;'>💰 Active Loans Detail</h2>", unsafe_allow_html=True)
+        # Display active loans
+        st.markdown("<h2 style='color: #FDB813; margin-top: 2rem;'>💰 Active Loans</h2>", unsafe_allow_html=True)
         
         display_columns = ['Sheet', 'Borrower', 'Original Loan Balance', 'Current Loan Balance', 
                           'Total Principal Repaid', 'Total Interest Repaid', 'Last Payment Amount',
@@ -1076,278 +999,8 @@ if master_file:
                     
                     # Add highlighting for negative net flows
                     def highlight_negative(val):
-                        if isinstance(val, str) and val.startswith('
-        if ls_data:
-            st.markdown("<h2 style='color: #FDB813; margin-top: 3rem;'>🏥 Life Settlement Portfolio</h2>", unsafe_allow_html=True)
-            
-            # Key Metrics
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric("Total Policies", ls_data['summary']['total_policies'])
-                st.metric("Average Age", f"{ls_data['summary']['avg_age']:.1f} years")
-            
-            with col2:
-                st.metric("Total NDB (Face Value)", format_currency(ls_data['summary']['total_ndb']))
-                st.metric("% Male", f"{ls_data['summary']['male_percentage']:.1f}%")
-            
-            with col3:
-                st.metric("Total Valuation", format_currency(ls_data['summary']['total_valuation']))
-                st.metric("Avg Remaining LE", f"{ls_data['summary']['avg_remaining_le']:.1f} months")
-            
-            with col4:
-                st.metric("Cost Basis", format_currency(ls_data['summary']['total_cost_basis']))
-                st.metric("Premiums % of Face", f"{ls_data['summary']['premiums_as_pct_face']:.2f}%")
-            
-            # Monthly Premium Projections
-            if ls_data['monthly_premiums']:
-                st.markdown("<h3 style='color: #FFFFFF; margin-top: 2rem;'>Monthly Premium Projections</h3>", unsafe_allow_html=True)
-                
-                premium_items = list(ls_data['monthly_premiums'].items())
-                months_per_row = 6
-                
-                for i in range(0, len(premium_items), months_per_row):
-                    cols = st.columns(months_per_row)
-                    for j in range(months_per_row):
-                        if i + j < len(premium_items):
-                            month, amount = premium_items[i + j]
-                            with cols[j]:
-                                st.metric(month, format_currency(amount))
-            
-            # Policy Details Table
-            st.markdown("<h3 style='color: #FFFFFF; margin-top: 2rem;'>Policy Details</h3>", unsafe_allow_html=True)
-            
-            if ls_data['policies']:
-                policies_df = pd.DataFrame(ls_data['policies'])
-                
-                # Format for display
-                display_policy_df = policies_df.copy()
-                display_policy_df['NDB'] = display_policy_df['NDB'].apply(format_currency)
-                display_policy_df['Valuation'] = display_policy_df['Valuation'].apply(format_currency)
-                display_policy_df['Cost_Basis'] = display_policy_df['Cost_Basis'].apply(format_currency)
-                display_policy_df['Annual_Premium'] = display_policy_df['Annual_Premium'].apply(format_currency)
-                display_policy_df['Premium_Pct_Face'] = display_policy_df['Premium_Pct_Face'].apply(lambda x: f"{x:.2f}%")
-                display_policy_df['Remaining_LE'] = display_policy_df['Remaining_LE'].apply(lambda x: f"{x:.1f} months" if x > 0 else "N/A")
-                
-                # Rename columns
-                display_policy_df = display_policy_df.rename(columns={
-                    'Policy_ID': 'Policy ID',
-                    'Name': 'Name',
-                    'Age': 'Age',
-                    'Gender': 'Gender',
-                    'NDB': 'Face Value',
-                    'Valuation': 'Valuation',
-                    'Cost_Basis': 'Cost Basis',
-                    'Remaining_LE': 'Remaining LE',
-                    'Annual_Premium': 'Annual Premium',
-                    'Premium_Pct_Face': 'Premium % Face'
-                })
-                
-                st.dataframe(display_policy_df[['Policy ID', 'Name', 'Age', 'Gender', 'Face Value', 'Valuation', 'Annual Premium', 'Premium % Face']], 
-                            use_container_width=True, hide_index=True)
-        
-    except Exception as e:
-        st.error(f"Error processing master file: {str(e)}")
-        st.error("Please ensure the Excel file has the expected structure with loan sheets starting with '#'")
-        
-        with st.expander("Debug Information"):
-            st.code(str(e))
-
-else:
-    # Landing page
-    st.markdown("""
-    <div style='text-align: center; padding: 3rem 0;'>
-        <div style='font-size: 5rem; color: #FDB813;'>⚡</div>
-        <h2 style='color: #FFFFFF; margin-top: 1rem;'>Welcome to the Sirocco I LP Portfolio Dashboard</h2>
-        <p style='color: #999999; font-size: 1.2rem; margin-top: 1rem;'>
-            Upload your Master Excel file to begin analyzing your portfolio
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Show expected file structure
-    with st.expander("📋 Expected Excel File Structure"):
-        st.markdown("""
-        <div style='color: #FFFFFF;'>
-        The Master Excel file should contain:
-        
-        **Dashboard sheet**: Summary of all loans
-        
-        **Loan sheets**: Named with # prefix (e.g., #1, #2, etc.)
-        
-        Each loan sheet should have loan information in either:
-        
-        **Format 1** (Data in column B):
-        - A2 or B2: Borrower name
-        - B3: Original loan amount
-        - B4: Annual interest rate
-        - B5: Loan period in months
-        - B6: Payment amount
-        - B7: Loan start date
-        
-        **Format 2** (Data in column C):
-        - A2 or B2: Borrower name
-        - C3: Original loan amount (when B3 contains label)
-        - C4: Annual interest rate
-        - C5: Loan period in months
-        - C6: Payment amount
-        - C7: Loan start date
-        
-        **Amortization schedule** starting from row 11 with columns:
-        - A: Month
-        - B: Repayment number
-        - C: Opening balance
-        - D: Loan repayment
-        - E: Interest charged
-        - F: Capital repaid
-        - G: Closing balance
-        - J: Payment date
-        - K: Amount paid
-        </div>
-        """, unsafe_allow_html=True)
-
-# Footer
-st.markdown("""
-<div style='margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #3d3d3d; text-align: center; color: #666666;'>
-    <p>Sirocco Partners - Portfolio Management System</p>
-</div>
-""", unsafe_allow_html=True)):
-                            num_val = float(val.replace('
-        if ls_data:
-            st.markdown("<h2 style='color: #FDB813; margin-top: 3rem;'>🏥 Life Settlement Portfolio</h2>", unsafe_allow_html=True)
-            
-            # Key Metrics
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric("Total Policies", ls_data['summary']['total_policies'])
-                st.metric("Average Age", f"{ls_data['summary']['avg_age']:.1f} years")
-            
-            with col2:
-                st.metric("Total NDB (Face Value)", format_currency(ls_data['summary']['total_ndb']))
-                st.metric("% Male", f"{ls_data['summary']['male_percentage']:.1f}%")
-            
-            with col3:
-                st.metric("Total Valuation", format_currency(ls_data['summary']['total_valuation']))
-                st.metric("Avg Remaining LE", f"{ls_data['summary']['avg_remaining_le']:.1f} months")
-            
-            with col4:
-                st.metric("Cost Basis", format_currency(ls_data['summary']['total_cost_basis']))
-                st.metric("Premiums % of Face", f"{ls_data['summary']['premiums_as_pct_face']:.2f}%")
-            
-            # Monthly Premium Projections
-            if ls_data['monthly_premiums']:
-                st.markdown("<h3 style='color: #FFFFFF; margin-top: 2rem;'>Monthly Premium Projections</h3>", unsafe_allow_html=True)
-                
-                premium_items = list(ls_data['monthly_premiums'].items())
-                months_per_row = 6
-                
-                for i in range(0, len(premium_items), months_per_row):
-                    cols = st.columns(months_per_row)
-                    for j in range(months_per_row):
-                        if i + j < len(premium_items):
-                            month, amount = premium_items[i + j]
-                            with cols[j]:
-                                st.metric(month, format_currency(amount))
-            
-            # Policy Details Table
-            st.markdown("<h3 style='color: #FFFFFF; margin-top: 2rem;'>Policy Details</h3>", unsafe_allow_html=True)
-            
-            if ls_data['policies']:
-                policies_df = pd.DataFrame(ls_data['policies'])
-                
-                # Format for display
-                display_policy_df = policies_df.copy()
-                display_policy_df['NDB'] = display_policy_df['NDB'].apply(format_currency)
-                display_policy_df['Valuation'] = display_policy_df['Valuation'].apply(format_currency)
-                display_policy_df['Cost_Basis'] = display_policy_df['Cost_Basis'].apply(format_currency)
-                display_policy_df['Annual_Premium'] = display_policy_df['Annual_Premium'].apply(format_currency)
-                display_policy_df['Premium_Pct_Face'] = display_policy_df['Premium_Pct_Face'].apply(lambda x: f"{x:.2f}%")
-                display_policy_df['Remaining_LE'] = display_policy_df['Remaining_LE'].apply(lambda x: f"{x:.1f} months" if x > 0 else "N/A")
-                
-                # Rename columns
-                display_policy_df = display_policy_df.rename(columns={
-                    'Policy_ID': 'Policy ID',
-                    'Name': 'Name',
-                    'Age': 'Age',
-                    'Gender': 'Gender',
-                    'NDB': 'Face Value',
-                    'Valuation': 'Valuation',
-                    'Cost_Basis': 'Cost Basis',
-                    'Remaining_LE': 'Remaining LE',
-                    'Annual_Premium': 'Annual Premium',
-                    'Premium_Pct_Face': 'Premium % Face'
-                })
-                
-                st.dataframe(display_policy_df[['Policy ID', 'Name', 'Age', 'Gender', 'Face Value', 'Valuation', 'Annual Premium', 'Premium % Face']], 
-                            use_container_width=True, hide_index=True)
-        
-    except Exception as e:
-        st.error(f"Error processing master file: {str(e)}")
-        st.error("Please ensure the Excel file has the expected structure with loan sheets starting with '#'")
-        
-        with st.expander("Debug Information"):
-            st.code(str(e))
-
-else:
-    # Landing page
-    st.markdown("""
-    <div style='text-align: center; padding: 3rem 0;'>
-        <div style='font-size: 5rem; color: #FDB813;'>⚡</div>
-        <h2 style='color: #FFFFFF; margin-top: 1rem;'>Welcome to the Sirocco I LP Portfolio Dashboard</h2>
-        <p style='color: #999999; font-size: 1.2rem; margin-top: 1rem;'>
-            Upload your Master Excel file to begin analyzing your portfolio
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Show expected file structure
-    with st.expander("📋 Expected Excel File Structure"):
-        st.markdown("""
-        <div style='color: #FFFFFF;'>
-        The Master Excel file should contain:
-        
-        **Dashboard sheet**: Summary of all loans
-        
-        **Loan sheets**: Named with # prefix (e.g., #1, #2, etc.)
-        
-        Each loan sheet should have loan information in either:
-        
-        **Format 1** (Data in column B):
-        - A2 or B2: Borrower name
-        - B3: Original loan amount
-        - B4: Annual interest rate
-        - B5: Loan period in months
-        - B6: Payment amount
-        - B7: Loan start date
-        
-        **Format 2** (Data in column C):
-        - A2 or B2: Borrower name
-        - C3: Original loan amount (when B3 contains label)
-        - C4: Annual interest rate
-        - C5: Loan period in months
-        - C6: Payment amount
-        - C7: Loan start date
-        
-        **Amortization schedule** starting from row 11 with columns:
-        - A: Month
-        - B: Repayment number
-        - C: Opening balance
-        - D: Loan repayment
-        - E: Interest charged
-        - F: Capital repaid
-        - G: Closing balance
-        - J: Payment date
-        - K: Amount paid
-        </div>
-        """, unsafe_allow_html=True)
-
-# Footer
-st.markdown("""
-<div style='margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #3d3d3d; text-align: center; color: #666666;'>
-    <p>Sirocco Partners - Portfolio Management System</p>
-</div>
-""", unsafe_allow_html=True), '').replace(',', ''))
+                        if isinstance(val, str) and val.startswith('$'):
+                            num_val = float(val.replace('$', '').replace(',', ''))
                             if num_val < 0:
                                 return 'color: #FF6B6B'
                         return ''
@@ -1358,28 +1011,6 @@ st.markdown("""
             except Exception as e:
                 st.error(f"Error creating cashflow vs premium analysis: {str(e)}")
                 st.info("Please check that both loan cashflow data and life settlement premium data are properly loaded.")
-
-        # Closed Loans Summary Section (NEW)
-        st.markdown("<h2 style='color: #FDB813; margin-top: 3rem;'>📊 Closed Loans Summary</h2>", unsafe_allow_html=True)
-        
-        # Calculate historical metrics
-        total_repaid_principal = loans_df['Total Principal Repaid'].sum()
-        total_repaid_interest = loans_df['Total Interest Repaid'].sum()
-        total_collected = total_repaid_principal + total_repaid_interest
-        total_original = loans_df['Original Loan Balance'].sum()
-        collection_rate = total_collected / total_original if total_original > 0 else 0
-        
-        # Display historical metrics
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Total Principal Repaid", format_currency(total_repaid_principal))
-        with col2:
-            st.metric("Total Interest Earned", format_currency(total_repaid_interest))
-        with col3:
-            st.metric("Total Collections", format_currency(total_collected))
-        with col4:
-            st.metric("Collection Rate", format_percent(collection_rate))
 
         # Display LS data if available (but after all loan data)
         if ls_data:
