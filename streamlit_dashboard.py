@@ -621,8 +621,92 @@ if master_file:
             st.metric("Collection Rate", format_percent(collection_rate))
             st.metric("Total Loans", len(loans_df))
         
-        # Display active loans
-        st.markdown("<h2 style='color: #FDB813; margin-top: 2rem;'>💰 Active Loans</h2>", unsafe_allow_html=True)
+        # NEW: Active Loans Summary Section
+        if len(active_loans) > 0:
+            st.markdown("<h2 style='color: #FDB813; margin-top: 2rem;'>📈 Active Loans Summary</h2>", unsafe_allow_html=True)
+            
+            # Calculate active loans metrics
+            active_orig_balance = active_loans['Original Loan Balance'].sum()
+            active_current_balance = active_loans['Current Loan Balance'].sum()
+            
+            # Calculate weighted average interest rate
+            active_loans['Weighted_Rate'] = active_loans['Original Loan Balance'] * active_loans['Annual Interest Rate']
+            weighted_avg_rate = active_loans['Weighted_Rate'].sum() / active_orig_balance if active_orig_balance > 0 else 0
+            
+            # Count amortizing vs interest only loans
+            amortizing_loans = len(active_loans[~active_loans['Is Interest Only']])
+            interest_only_loans = len(active_loans[active_loans['Is Interest Only']])
+            
+            # Calculate average maturity
+            today = pd.Timestamp.now()
+            active_loans['Maturity Date'] = pd.to_datetime(active_loans['Maturity Date'])
+            valid_maturities = active_loans[active_loans['Maturity Date'] > today]['Maturity Date']
+            
+            if len(valid_maturities) > 0:
+                avg_months_to_maturity = (valid_maturities - today).dt.days.mean() / 30.44  # Average days per month
+                avg_years_to_maturity = avg_months_to_maturity / 12
+            else:
+                avg_months_to_maturity = 0
+                avg_years_to_maturity = 0
+            
+            # Display active loans summary metrics
+            col1, col2, col3, col4, col5 = st.columns(5)
+            
+            with col1:
+                st.metric("Original Balance", format_currency(active_orig_balance))
+            with col2:
+                st.metric("Current Balance", format_currency(active_current_balance))
+            with col3:
+                st.metric("Avg Interest Rate", format_percent(weighted_avg_rate))
+            with col4:
+                st.metric("Amortizing Loans", f"{amortizing_loans}")
+                st.metric("Interest Only", f"{interest_only_loans}")
+            with col5:
+                st.metric("Avg Maturity", f"{avg_years_to_maturity:.1f} years")
+                st.metric("", f"({avg_months_to_maturity:.0f} months)")
+            
+            # Additional active loans insights
+            st.markdown("<h3 style='color: #FFFFFF; margin-top: 1rem;'>Active Loans Breakdown</h3>", unsafe_allow_html=True)
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                # Loan size distribution
+                st.markdown("**Loan Size Distribution**")
+                size_bins = [0, 100000, 250000, 500000, 1000000, float('inf')]
+                size_labels = ['< $100K', '$100K-$250K', '$250K-$500K', '$500K-$1M', '> $1M']
+                active_loans['Size_Category'] = pd.cut(active_loans['Current Loan Balance'], bins=size_bins, labels=size_labels)
+                size_dist = active_loans['Size_Category'].value_counts().sort_index()
+                
+                for category, count in size_dist.items():
+                    st.text(f"{category}: {count} loans")
+            
+            with col2:
+                # Interest rate distribution
+                st.markdown("**Interest Rate Distribution**")
+                rate_bins = [0, 0.05, 0.075, 0.10, 0.125, float('inf')]
+                rate_labels = ['< 5%', '5%-7.5%', '7.5%-10%', '10%-12.5%', '> 12.5%']
+                active_loans['Rate_Category'] = pd.cut(active_loans['Annual Interest Rate'], bins=rate_bins, labels=rate_labels)
+                rate_dist = active_loans['Rate_Category'].value_counts().sort_index()
+                
+                for category, count in rate_dist.items():
+                    st.text(f"{category}: {count} loans")
+            
+            with col3:
+                # Maturity distribution
+                st.markdown("**Maturity Distribution**")
+                active_loans['Months_to_Maturity'] = (active_loans['Maturity Date'] - today).dt.days / 30.44
+                maturity_bins = [0, 6, 12, 24, 36, float('inf')]
+                maturity_labels = ['< 6 months', '6-12 months', '1-2 years', '2-3 years', '> 3 years']
+                active_loans['Maturity_Category'] = pd.cut(active_loans['Months_to_Maturity'], bins=maturity_bins, labels=maturity_labels)
+                maturity_dist = active_loans['Maturity_Category'].value_counts().sort_index()
+                
+                for category, count in maturity_dist.items():
+                    if pd.notna(count):
+                        st.text(f"{category}: {count} loans")
+        
+        # Display active loans table
+        st.markdown("<h2 style='color: #FDB813; margin-top: 2rem;'>💰 Active Loans Detail</h2>", unsafe_allow_html=True)
         
         display_columns = ['Sheet', 'Borrower', 'Original Loan Balance', 'Current Loan Balance', 
                           'Total Principal Repaid', 'Total Interest Repaid', 'Last Payment Amount',
