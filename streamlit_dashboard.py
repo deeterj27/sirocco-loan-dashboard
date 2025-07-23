@@ -189,6 +189,9 @@ def process_life_settlement_data(ls_file):
     try:
         ls_wb = load_workbook(ls_file, data_only=True)
         
+        # Debug: Show all sheet names
+        st.info(f"Found sheets in LS file: {ls_wb.sheetnames}")
+        
         if 'Valuation Summary' not in ls_wb.sheetnames or 'Premium Stream' not in ls_wb.sheetnames:
             st.error(f"Required sheets not found. Found sheets: {ls_wb.sheetnames}")
             return None
@@ -196,41 +199,64 @@ def process_life_settlement_data(ls_file):
         val_sheet = ls_wb['Valuation Summary']
         premium_sheet = ls_wb['Premium Stream']
         
+        # Debug: Check headers
+        st.info(f"Valuation Summary A2: {val_sheet['A2'].value}, B2: {val_sheet['B2'].value}")
+        st.info(f"Premium Stream A2: {premium_sheet['A2'].value}, B2: {premium_sheet['B2'].value}")
+        
         policies = []
         
         # Process Valuation Summary sheet
         # Headers are in row 2, data starts from row 3
+        row_count = 0
         for row in range(3, 200):
             policy_id_cell = val_sheet[f'A{row}']  # Policy ID is in column A
             if not policy_id_cell.value:
                 break
+            
+            row_count += 1
                 
             try:
+                # Debug first row
+                if row == 3:
+                    st.info(f"First data row - A3: {val_sheet['A3'].value}, U3: {val_sheet['U3'].value}, Y3: {val_sheet['Y3'].value}")
+                
                 # Get Calc LE value - try column AB first, then AC
                 calc_le_value = val_sheet[f'AB{row}'].value
                 if calc_le_value is None or calc_le_value == '':
                     calc_le_value = val_sheet[f'AC{row}'].value
                 
+                # Parse NDB value
+                ndb_raw = val_sheet[f'U{row}'].value
+                if ndb_raw is not None:
+                    ndb_str = str(ndb_raw).replace('$', '').replace(',', '').replace(' ', '').strip()
+                    ndb_value = safe_float(ndb_str)
+                else:
+                    ndb_value = 0
+                
                 policy_data = {
                     'Policy_ID': str(policy_id_cell.value),
-                    'Insured_ID': str(val_sheet[f'B{row}'].value or ''),  # Column B
-                    'Name': str(val_sheet[f'C{row}'].value or ''),  # Column C
-                    'Age': safe_float(val_sheet[f'E{row}'].value),  # Column E
-                    'Gender': str(val_sheet[f'F{row}'].value or ''),  # Column F
-                    'NDB': safe_float(val_sheet[f'U{row}'].value),  # Column U
-                    'Valuation': safe_float(val_sheet[f'Y{row}'].value),  # Column Y
-                    'Cost_Basis': safe_float(val_sheet[f'Z{row}'].value),  # Column Z
-                    'Remaining_LE': safe_float(calc_le_value) if calc_le_value else 0,  # Column AB or AC
+                    'Insured_ID': str(val_sheet[f'B{row}'].value or ''),
+                    'Name': str(val_sheet[f'C{row}'].value or ''),
+                    'Age': safe_float(val_sheet[f'E{row}'].value),
+                    'Gender': str(val_sheet[f'F{row}'].value or ''),
+                    'NDB': ndb_value,
+                    'Valuation': safe_float(str(val_sheet[f'Y{row}'].value or '0').replace('$', '').replace(',', '').replace(' ', '')),
+                    'Cost_Basis': safe_float(str(val_sheet[f'Z{row}'].value or '0').replace('$', '').replace(',', '').replace(' ', '')),
+                    'Remaining_LE': safe_float(calc_le_value) if calc_le_value else 0,
                 }
                 
                 # Only add policies with valid NDB
                 if policy_data['NDB'] > 0:
                     policies.append(policy_data)
+                    
             except Exception as e:
                 st.warning(f"Error processing row {row}: {str(e)}")
                 continue
         
+        st.info(f"Processed {row_count} rows, found {len(policies)} valid policies")
+        
         if len(policies) == 0:
+            st.error("No valid policies found. Check that NDB values are present in column U.")
             return None
         
         # Calculate summary statistics
@@ -242,8 +268,8 @@ def process_life_settlement_data(ls_file):
         valid_ages = [p['Age'] for p in policies if p['Age'] > 0]
         avg_age = sum(valid_ages) / len(valid_ages) if valid_ages else 0
         
-        male_count = sum(1 for p in policies if 'male' in p['Gender'].lower() and 'female' not in p['Gender'].lower())
-        female_count = sum(1 for p in policies if 'female' in p['Gender'].lower())
+        male_count = sum(1 for p in policies if 'male' in str(p['Gender']).lower() and 'female' not in str(p['Gender']).lower())
+        female_count = sum(1 for p in policies if 'female' in str(p['Gender']).lower())
         male_percentage = (male_count / (male_count + female_count)) * 100 if (male_count + female_count) > 0 else 0
         
         valid_les = [p['Remaining_LE'] for p in policies if p['Remaining_LE'] > 0]
@@ -252,20 +278,32 @@ def process_life_settlement_data(ls_file):
         # Process monthly premiums from Premium Stream sheet
         monthly_premiums = {}
         policy_premiums = {}
+        
         # Premium columns start at column L (index 11) based on the structure
         # Get month headers from row 2
         month_headers = []
         col_index = 11  # Start at column L
-        while col_index < 300:  # Check many columns as there are many months
-            cell = premium_sheet.cell(row=2, column=col_index+1)  # openpyxl uses 1-based indexing
-            if cell.value and isinstance(cell.value, str) and '-' in str(cell.value):
-                month_headers.append((col_index, str(cell.value)))
+        
+        # Debug premium headers
+        st.info(f"Looking for premium columns starting at column L (index 11)")
+        
+        while col_index < 50:  # Check first 50 columns
+            try:
+                cell = premium_sheet.cell(row=2, column=col_index+1)  # openpyxl uses 1-based indexing
+                if cell.value and '-' in str(cell.value):
+                    month_headers.append((col_index, str(cell.value)))
+                    if len(month_headers) <= 3:  # Show first few headers
+                        st.info(f"Found month header at column {col_index}: {cell.value}")
+            except:
+                break
             col_index += 1
         
+        st.info(f"Found {len(month_headers)} month columns")
+            
         # Read premium data
-        for month_col, month_name in month_headers:
+        for month_col, month_name in month_headers[:12]:  # Process first 12 months
             month_total = 0
-            for prem_row in range(3, 200):  # Start from row 3
+            for prem_row in range(3, min(200, len(policies) + 3)):
                 try:
                     lyric_id_cell = premium_sheet.cell(row=prem_row, column=1)  # Column A - Lyric ID
                     if lyric_id_cell.value:
@@ -273,12 +311,15 @@ def process_life_settlement_data(ls_file):
                         premium_cell = premium_sheet.cell(row=prem_row, column=month_col+1)
                         premium_val = safe_float(premium_cell.value) if premium_cell.value else 0
                         month_total += premium_val
+                        
                         if lyric_id not in policy_premiums:
                             policy_premiums[lyric_id] = {}
                         policy_premiums[lyric_id][month_name] = premium_val
-                except Exception:
+                except:
                     continue
-            monthly_premiums[month_name] = month_total
+            
+            if month_total > 0:
+                monthly_premiums[month_name] = month_total
         
         # Calculate policy-level metrics
         for policy in policies:
@@ -296,6 +337,8 @@ def process_life_settlement_data(ls_file):
         
         total_annual_premiums = sum(monthly_premiums.values())
         premiums_as_pct_face = (total_annual_premiums / total_ndb) * 100 if total_ndb > 0 else 0
+        
+        st.success(f"Successfully processed LS data: {total_policies} policies, ${total_ndb:,.2f} face value")
         
         return {
             'policies': policies,
