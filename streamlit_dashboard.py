@@ -618,7 +618,7 @@ if master_file:
         not_started_loans = not_started_loans.sort_values('Loan Start Date')
         
         # Display portfolio summary
-        st.markdown("<h2 style='color: #FDB813; margin-top: 2rem;'>📊 Portfolio Summary</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='color: #FDB813; margin-top: 2rem; font-size: 2rem;'>📊 Portfolio Summary</h2>", unsafe_allow_html=True)
         
         # Calculate all metrics first
         total_original = loans_df['Original Loan Balance'].sum()
@@ -635,34 +635,45 @@ if master_file:
             background-color: #2d2d2d;
             border: 1px solid #3d3d3d;
             border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
         }
         .summary-title {
             color: #FDB813;
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
             display: flex;
             align-items: center;
+            letter-spacing: 0.5px;
         }
         .summary-metrics {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 1.5rem;
+            gap: 2rem;
         }
         .metric-item {
             text-align: center;
         }
         .metric-label {
-            color: #999999;
-            font-size: 0.85rem;
-            margin-bottom: 0.25rem;
+            color: #AAAAAA;
+            font-size: 0.95rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
         .metric-value {
             color: #FFFFFF;
-            font-size: 1.5rem;
-            font-weight: 700;
+            font-size: 2.2rem;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+        .metric-subvalue {
+            color: #999999;
+            font-size: 1.1rem;
+            font-weight: 500;
+            margin-top: 0.25rem;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -734,18 +745,18 @@ if master_file:
                     <div class='metric-item'>
                         <div class='metric-label'>Avg Maturity</div>
                         <div class='metric-value'>{:.1f} yrs</div>
-                        <div style='color: #999999; font-size: 0.9rem;'>({:.0f} months)</div>
+                        <div class='metric-subvalue'>({:.0f} months)</div>
                     </div>
                 </div>
-                <div style='margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #3d3d3d;'>
-                    <div style='display: flex; justify-content: center; gap: 3rem;'>
+                <div style='margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #3d3d3d;'>
+                    <div style='display: flex; justify-content: center; gap: 4rem;'>
                         <div style='text-align: center;'>
                             <div class='metric-label'>Amortizing Loans</div>
-                            <div style='color: #FFFFFF; font-size: 1.2rem; font-weight: 600;'>{}</div>
+                            <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{}</div>
                         </div>
                         <div style='text-align: center;'>
                             <div class='metric-label'>Interest Only</div>
-                            <div style='color: #FFFFFF; font-size: 1.2rem; font-weight: 600;'>{}</div>
+                            <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{}</div>
                         </div>
                     </div>
                 </div>
@@ -763,7 +774,7 @@ if master_file:
             st.markdown("""
             <div class='summary-box'>
                 <div class='summary-title'>💰 Active Loans Summary</div>
-                <div style='text-align: center; color: #999999; padding: 2rem;'>
+                <div style='text-align: center; color: #999999; padding: 3rem; font-size: 1.2rem;'>
                     No active loans in portfolio
                 </div>
             </div>
@@ -773,7 +784,7 @@ if master_file:
         st.markdown("""
         <div class='summary-box'>
             <div class='summary-title'>📈 Historical Performance</div>
-            <div class='summary-metrics'>
+            <div style='display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem;'>
                 <div class='metric-item'>
                     <div class='metric-label'>Principal Repaid</div>
                     <div class='metric-value'>{}</div>
