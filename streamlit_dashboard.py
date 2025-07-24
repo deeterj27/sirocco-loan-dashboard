@@ -943,8 +943,22 @@ if master_file:
                     col1, col2 = st.columns([3, 1])
                 
                     with col1:
-                        # Simple line chart fallback
-                        st.line_chart(comparison_df.set_index('Month')[['Loan Cashflows', 'LS Premiums', 'Net Cash Flow']])
+                        # Create a larger line chart that fills the available space
+                        chart_data = comparison_df.set_index('Month')[['Loan Cashflows', 'LS Premiums', 'Net Cash Flow']]
+                        
+                        # Use container with custom height
+                        chart_container = st.container()
+                        with chart_container:
+                            # Add custom CSS to make the chart taller
+                            st.markdown("""
+                            <style>
+                            [data-testid="stLineChart"] {
+                                height: 500px !important;
+                            }
+                            </style>
+                            """, unsafe_allow_html=True)
+                            
+                            st.line_chart(chart_data, height=500, use_container_width=True)
                     
                     with col2:
                         # Summary metrics - Current Month Focus
