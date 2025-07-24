@@ -1208,32 +1208,35 @@ if master_file:
             
             # Monthly Premium Projections
             if ls_data['monthly_premiums']:
-                st.markdown("""
+                premium_items = list(ls_data['monthly_premiums'].items())
+                
+                # Build the complete HTML for the premium projections box
+                premium_html = """
                 <div class='summary-box'>
                     <div class='summary-title'>💵 Monthly Premium Projections</div>
-                """, unsafe_allow_html=True)
-                
-                premium_items = list(ls_data['monthly_premiums'].items())
+                """
                 
                 # Create rows of 6 months each
                 for i in range(0, len(premium_items), 6):
                     month_row = premium_items[i:i+6]
                     
                     # Create grid HTML for this row
-                    grid_html = "<div style='display: grid; grid-template-columns: repeat({}, 1fr); gap: 2rem; margin-bottom: 1.5rem;'>".format(len(month_row))
+                    premium_html += "<div style='display: grid; grid-template-columns: repeat({}, 1fr); gap: 2rem; margin-bottom: 1.5rem;'>".format(len(month_row))
                     
                     for month, amount in month_row:
-                        grid_html += """
+                        premium_html += """
                         <div class='metric-item'>
                             <div class='metric-label'>{}</div>
                             <div style='color: #FFFFFF; font-size: 1.6rem; font-weight: 700;'>{}</div>
                         </div>
                         """.format(month, format_currency(amount))
                     
-                    grid_html += "</div>"
-                    st.markdown(grid_html, unsafe_allow_html=True)
+                    premium_html += "</div>"
                 
-                st.markdown("</div>", unsafe_allow_html=True)
+                premium_html += "</div>"
+                
+                # Display the complete HTML
+                st.markdown(premium_html, unsafe_allow_html=True)
             
             # Policy Details Table
             st.markdown("<h3 style='color: #FFFFFF; margin-top: 2rem; font-size: 1.4rem;'>📋 Policy Details</h3>", unsafe_allow_html=True)
