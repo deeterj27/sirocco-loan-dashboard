@@ -1150,44 +1150,93 @@ if master_file:
 
         # Display LS data if available (but after all loan data)
         if ls_data:
-            st.markdown("<h2 style='color: #FDB813; margin-top: 3rem;'>🏥 Life Settlement Portfolio</h2>", unsafe_allow_html=True)
+            st.markdown("<h2 style='color: #FDB813; margin-top: 3rem; font-size: 2rem;'>🏥 Life Settlement Portfolio</h2>", unsafe_allow_html=True)
             
-            # Key Metrics
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric("Total Policies", ls_data['summary']['total_policies'])
-                st.metric("Average Age", f"{ls_data['summary']['avg_age']:.1f} years")
-            
-            with col2:
-                st.metric("Total NDB (Face Value)", format_currency(ls_data['summary']['total_ndb']))
-                st.metric("% Male", f"{ls_data['summary']['male_percentage']:.1f}%")
-            
-            with col3:
-                st.metric("Total Valuation", format_currency(ls_data['summary']['total_valuation']))
-                st.metric("Avg Remaining LE", f"{ls_data['summary']['avg_remaining_le']:.1f} months")
-            
-            with col4:
-                st.metric("Cost Basis", format_currency(ls_data['summary']['total_cost_basis']))
-                st.metric("Premiums % of Face", f"{ls_data['summary']['premiums_as_pct_face']:.2f}%")
+            # Key Metrics Box
+            st.markdown("""
+            <div class='summary-box'>
+                <div class='summary-title'>📊 Portfolio Metrics</div>
+                <div class='summary-metrics'>
+                    <div class='metric-item'>
+                        <div class='metric-label'>Total Policies</div>
+                        <div class='metric-value'>{}</div>
+                    </div>
+                    <div class='metric-item'>
+                        <div class='metric-label'>Total NDB (Face Value)</div>
+                        <div class='metric-value'>{}</div>
+                    </div>
+                    <div class='metric-item'>
+                        <div class='metric-label'>Total Valuation</div>
+                        <div class='metric-value'>{}</div>
+                    </div>
+                    <div class='metric-item'>
+                        <div class='metric-label'>Cost Basis</div>
+                        <div class='metric-value'>{}</div>
+                    </div>
+                </div>
+                <div style='margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #3d3d3d;'>
+                    <div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 2rem;'>
+                        <div class='metric-item'>
+                            <div class='metric-label'>Average Age</div>
+                            <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{:.1f} years</div>
+                        </div>
+                        <div class='metric-item'>
+                            <div class='metric-label'>% Male</div>
+                            <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{:.1f}%</div>
+                        </div>
+                        <div class='metric-item'>
+                            <div class='metric-label'>Avg Remaining LE</div>
+                            <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{:.1f} months</div>
+                        </div>
+                        <div class='metric-item'>
+                            <div class='metric-label'>Premiums % of Face</div>
+                            <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{:.2f}%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            """.format(
+                ls_data['summary']['total_policies'],
+                format_currency(ls_data['summary']['total_ndb']),
+                format_currency(ls_data['summary']['total_valuation']),
+                format_currency(ls_data['summary']['total_cost_basis']),
+                ls_data['summary']['avg_age'],
+                ls_data['summary']['male_percentage'],
+                ls_data['summary']['avg_remaining_le'],
+                ls_data['summary']['premiums_as_pct_face']
+            ), unsafe_allow_html=True)
             
             # Monthly Premium Projections
             if ls_data['monthly_premiums']:
-                st.markdown("<h3 style='color: #FFFFFF; margin-top: 2rem;'>Monthly Premium Projections</h3>", unsafe_allow_html=True)
+                st.markdown("""
+                <div class='summary-box'>
+                    <div class='summary-title'>💵 Monthly Premium Projections</div>
+                """, unsafe_allow_html=True)
                 
                 premium_items = list(ls_data['monthly_premiums'].items())
-                months_per_row = 6
                 
-                for i in range(0, len(premium_items), months_per_row):
-                    cols = st.columns(months_per_row)
-                    for j in range(months_per_row):
-                        if i + j < len(premium_items):
-                            month, amount = premium_items[i + j]
-                            with cols[j]:
-                                st.metric(month, format_currency(amount))
+                # Create rows of 6 months each
+                for i in range(0, len(premium_items), 6):
+                    month_row = premium_items[i:i+6]
+                    
+                    # Create grid HTML for this row
+                    grid_html = "<div style='display: grid; grid-template-columns: repeat({}, 1fr); gap: 2rem; margin-bottom: 1.5rem;'>".format(len(month_row))
+                    
+                    for month, amount in month_row:
+                        grid_html += """
+                        <div class='metric-item'>
+                            <div class='metric-label'>{}</div>
+                            <div style='color: #FFFFFF; font-size: 1.6rem; font-weight: 700;'>{}</div>
+                        </div>
+                        """.format(month, format_currency(amount))
+                    
+                    grid_html += "</div>"
+                    st.markdown(grid_html, unsafe_allow_html=True)
+                
+                st.markdown("</div>", unsafe_allow_html=True)
             
             # Policy Details Table
-            st.markdown("<h3 style='color: #FFFFFF; margin-top: 2rem;'>Policy Details</h3>", unsafe_allow_html=True)
+            st.markdown("<h3 style='color: #FFFFFF; margin-top: 2rem; font-size: 1.4rem;'>📋 Policy Details</h3>", unsafe_allow_html=True)
             
             if ls_data['policies']:
                 policies_df = pd.DataFrame(ls_data['policies'])
