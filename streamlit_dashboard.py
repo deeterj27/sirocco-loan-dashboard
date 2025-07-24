@@ -1230,6 +1230,13 @@ if master_file:
                         border: 1px solid #3d3d3d;
                         border-top: none;
                     }
+                    .premium-box {
+                        background-color: #3d3d3d;
+                        padding: 1.5rem;
+                        border-radius: 6px;
+                        margin-bottom: 0.5rem;
+                        text-align: center;
+                    }
                     </style>
                     <div class='premium-container'>
                     """, unsafe_allow_html=True)
@@ -1239,18 +1246,26 @@ if master_file:
                         cols = st.columns(min(6, len(premium_items)))
                         for i, (month, amount) in enumerate(premium_items[:6]):
                             with cols[i]:
-                                st.markdown(f"<div style='text-align: center; color: #AAAAAA; font-size: 0.95rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;'>{month}</div>", unsafe_allow_html=True)
-                                st.markdown(f"<div style='text-align: center; color: #FFFFFF; font-size: 1.8rem; font-weight: 700; margin-top: 0.5rem;'>{format_currency(amount)}</div>", unsafe_allow_html=True)
+                                st.markdown(f"""
+                                <div class='premium-box'>
+                                    <div style='color: #AAAAAA; font-size: 0.95rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.75rem;'>{month}</div>
+                                    <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{format_currency(amount)}</div>
+                                </div>
+                                """, unsafe_allow_html=True)
                     
                     # Second row (remaining months)
                     if len(premium_items) > 6:
-                        st.markdown("<div style='margin-top: 2rem;'></div>", unsafe_allow_html=True)
+                        st.markdown("<div style='margin-top: 1rem;'></div>", unsafe_allow_html=True)
                         remaining = premium_items[6:]
                         cols = st.columns(len(remaining))
                         for i, (month, amount) in enumerate(remaining):
                             with cols[i]:
-                                st.markdown(f"<div style='text-align: center; color: #AAAAAA; font-size: 0.95rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;'>{month}</div>", unsafe_allow_html=True)
-                                st.markdown(f"<div style='text-align: center; color: #FFFFFF; font-size: 1.8rem; font-weight: 700; margin-top: 0.5rem;'>{format_currency(amount)}</div>", unsafe_allow_html=True)
+                                st.markdown(f"""
+                                <div class='premium-box'>
+                                    <div style='color: #AAAAAA; font-size: 0.95rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.75rem;'>{month}</div>
+                                    <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{format_currency(amount)}</div>
+                                </div>
+                                """, unsafe_allow_html=True)
                     
                     st.markdown("</div>", unsafe_allow_html=True)
             
