@@ -953,12 +953,12 @@ if master_file:
                             st.markdown("""
                             <style>
                             [data-testid="stLineChart"] {
-                                height: 500px !important;
+                                height: 600px !important;
                             }
                             </style>
                             """, unsafe_allow_html=True)
                             
-                            st.line_chart(chart_data, height=500, use_container_width=True)
+                            st.line_chart(chart_data, height=600, use_container_width=True)
                     
                     with col2:
                         # Summary metrics - Current Month Focus
