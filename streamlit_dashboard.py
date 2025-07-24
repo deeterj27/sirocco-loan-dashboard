@@ -627,24 +627,73 @@ if master_file:
         total_repaid_principal = loans_df['Total Principal Repaid'].sum()
         total_repaid_interest = loans_df['Total Interest Repaid'].sum()
         total_collected = total_repaid_principal + total_repaid_interest
-        collection_rate = total_collected / total_original if total_original > 0 else 0
         
-        # Portfolio Overview Row
-        st.markdown("<h3 style='color: #FFFFFF; margin-top: 1rem;'>Portfolio Overview</h3>", unsafe_allow_html=True)
-        col1, col2, col3, col4 = st.columns(4)
+        # Create styled summary boxes
+        st.markdown("""
+        <style>
+        .summary-box {
+            background-color: #2d2d2d;
+            border: 1px solid #3d3d3d;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .summary-title {
+            color: #FDB813;
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+        }
+        .summary-metrics {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+        }
+        .metric-item {
+            text-align: center;
+        }
+        .metric-label {
+            color: #999999;
+            font-size: 0.85rem;
+            margin-bottom: 0.25rem;
+        }
+        .metric-value {
+            color: #FFFFFF;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        </style>
+        """, unsafe_allow_html=True)
         
-        with col1:
-            st.metric("Active Loans", len(active_loans))
-        with col2:
-            st.metric("Closed Loans", len(closed_loans))
-        with col3:
-            st.metric("Not Started", len(not_started_loans))
-        with col4:
-            st.metric("Total Loans", len(loans_df))
+        # Portfolio Overview Box
+        st.markdown("""
+        <div class='summary-box'>
+            <div class='summary-title'>📁 Portfolio Overview</div>
+            <div class='summary-metrics'>
+                <div class='metric-item'>
+                    <div class='metric-label'>Active Loans</div>
+                    <div class='metric-value'>{}</div>
+                </div>
+                <div class='metric-item'>
+                    <div class='metric-label'>Closed Loans</div>
+                    <div class='metric-value'>{}</div>
+                </div>
+                <div class='metric-item'>
+                    <div class='metric-label'>Not Started</div>
+                    <div class='metric-value'>{}</div>
+                </div>
+                <div class='metric-item'>
+                    <div class='metric-label'>Total Loans</div>
+                    <div class='metric-value'>{}</div>
+                </div>
+            </div>
+        </div>
+        """.format(len(active_loans), len(closed_loans), len(not_started_loans), len(loans_df)), 
+        unsafe_allow_html=True)
         
-        # Active Loans Summary Row
-        st.markdown("<h3 style='color: #FFFFFF; margin-top: 1.5rem;'>Active Loans Summary</h3>", unsafe_allow_html=True)
-        
+        # Active Loans Summary Box
         if len(active_loans) > 0:
             # Calculate weighted average interest rate
             active_loans['Weighted_Rate'] = active_loans['Original Loan Balance'] * active_loans['Annual Interest Rate']
@@ -666,35 +715,84 @@ if master_file:
                 avg_months_to_maturity = 0
                 avg_years_to_maturity = 0
             
-            col1, col2, col3, col4, col5 = st.columns(5)
-            
-            with col1:
-                st.metric("Original Balance", format_currency(active_orig_balance))
-            with col2:
-                st.metric("Current Balance", format_currency(active_current_balance))
-            with col3:
-                st.metric("Avg Interest Rate", format_percent(weighted_avg_rate))
-            with col4:
-                st.metric("Amortizing Loans", f"{amortizing_loans}")
-                st.metric("Interest Only", f"{interest_only_loans}")
-            with col5:
-                st.metric("Avg Maturity", f"{avg_years_to_maturity:.1f} years")
-                st.metric("", f"({avg_months_to_maturity:.0f} months)")
+            st.markdown("""
+            <div class='summary-box'>
+                <div class='summary-title'>💰 Active Loans Summary</div>
+                <div class='summary-metrics'>
+                    <div class='metric-item'>
+                        <div class='metric-label'>Original Balance</div>
+                        <div class='metric-value'>{}</div>
+                    </div>
+                    <div class='metric-item'>
+                        <div class='metric-label'>Current Balance</div>
+                        <div class='metric-value'>{}</div>
+                    </div>
+                    <div class='metric-item'>
+                        <div class='metric-label'>Avg Interest Rate</div>
+                        <div class='metric-value'>{}</div>
+                    </div>
+                    <div class='metric-item'>
+                        <div class='metric-label'>Avg Maturity</div>
+                        <div class='metric-value'>{:.1f} yrs</div>
+                        <div style='color: #999999; font-size: 0.9rem;'>({:.0f} months)</div>
+                    </div>
+                </div>
+                <div style='margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #3d3d3d;'>
+                    <div style='display: flex; justify-content: center; gap: 3rem;'>
+                        <div style='text-align: center;'>
+                            <div class='metric-label'>Amortizing Loans</div>
+                            <div style='color: #FFFFFF; font-size: 1.2rem; font-weight: 600;'>{}</div>
+                        </div>
+                        <div style='text-align: center;'>
+                            <div class='metric-label'>Interest Only</div>
+                            <div style='color: #FFFFFF; font-size: 1.2rem; font-weight: 600;'>{}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            """.format(
+                format_currency(active_orig_balance),
+                format_currency(active_current_balance),
+                format_percent(weighted_avg_rate),
+                avg_years_to_maturity,
+                avg_months_to_maturity,
+                amortizing_loans,
+                interest_only_loans
+            ), unsafe_allow_html=True)
         else:
-            st.info("No active loans in portfolio")
+            st.markdown("""
+            <div class='summary-box'>
+                <div class='summary-title'>💰 Active Loans Summary</div>
+                <div style='text-align: center; color: #999999; padding: 2rem;'>
+                    No active loans in portfolio
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
         
-        # Closed Loans Summary Row
-        st.markdown("<h3 style='color: #FFFFFF; margin-top: 1.5rem;'>Historical Performance</h3>", unsafe_allow_html=True)
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Total Principal Repaid", format_currency(total_repaid_principal))
-        with col2:
-            st.metric("Total Interest Earned", format_currency(total_repaid_interest))
-        with col3:
-            st.metric("Total Collections", format_currency(total_collected))
-        with col4:
-            st.metric("Collection Rate", format_percent(collection_rate))
+        # Historical Performance Box
+        st.markdown("""
+        <div class='summary-box'>
+            <div class='summary-title'>📈 Historical Performance</div>
+            <div class='summary-metrics'>
+                <div class='metric-item'>
+                    <div class='metric-label'>Principal Repaid</div>
+                    <div class='metric-value'>{}</div>
+                </div>
+                <div class='metric-item'>
+                    <div class='metric-label'>Interest Earned</div>
+                    <div class='metric-value'>{}</div>
+                </div>
+                <div class='metric-item'>
+                    <div class='metric-label'>Total Collections</div>
+                    <div class='metric-value'>{}</div>
+                </div>
+            </div>
+        </div>
+        """.format(
+            format_currency(total_repaid_principal),
+            format_currency(total_repaid_interest),
+            format_currency(total_collected)
+        ), unsafe_allow_html=True)
         
         # Active Loans Breakdown
         if len(active_loans) > 0:
