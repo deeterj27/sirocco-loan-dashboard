@@ -1208,40 +1208,24 @@ if master_file:
             
             # Monthly Premium Projections
             if ls_data['monthly_premiums']:
-                premium_items = list(ls_data['monthly_premiums'].items())
-                
-                # Build the HTML for the entire premium projections box
-                premium_html = """
+                st.markdown("""
                 <div class='summary-box'>
                     <div class='summary-title'>💵 Monthly Premium Projections</div>
-                """
+                    <div style='display: grid; grid-template-columns: repeat(6, 1fr); gap: 2rem; padding: 1rem 0;'>
+                """, unsafe_allow_html=True)
                 
-                # First row (first 6 months)
-                if len(premium_items) > 0:
-                    premium_html += "<div class='summary-metrics'>"
-                    for month, amount in premium_items[:6]:
-                        premium_html += f"""
-                            <div class='metric-item'>
-                                <div class='metric-label'>{month}</div>
-                                <div class='metric-value'>{format_currency(amount)}</div>
-                            </div>
-                        """
-                    premium_html += "</div>"
+                premium_items = list(ls_data['monthly_premiums'].items())
                 
-                # Second row (remaining months)
-                if len(premium_items) > 6:
-                    premium_html += "<div class='summary-metrics' style='margin-top: 2rem;'>"
-                    for month, amount in premium_items[6:]:
-                        premium_html += f"""
-                            <div class='metric-item'>
-                                <div class='metric-label'>{month}</div>
-                                <div class='metric-value'>{format_currency(amount)}</div>
-                            </div>
-                        """
-                    premium_html += "</div>"
+                # Display all months in a grid
+                for month, amount in premium_items:
+                    st.markdown(f"""
+                        <div class='metric-item'>
+                            <div class='metric-label'>{month}</div>
+                            <div class='metric-value'>{format_currency(amount)}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
                 
-                premium_html += "</div>"
-                st.markdown(premium_html, unsafe_allow_html=True)
+                st.markdown("</div></div>", unsafe_allow_html=True)
             
             # Policy Details Table
             st.markdown("<h3 style='color: #FFFFFF; margin-top: 2rem; font-size: 1.4rem;'>📋 Policy Details</h3>", unsafe_allow_html=True)
