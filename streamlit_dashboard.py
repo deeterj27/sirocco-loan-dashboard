@@ -1208,41 +1208,41 @@ if master_file:
             
             # Monthly Premium Projections
             if ls_data['monthly_premiums']:
-                st.markdown("""
+                # Create a styled box for monthly premiums
+                premium_html = """
                 <div class='summary-box'>
                     <div class='summary-title'>💵 Monthly Premium Projections</div>
-                    <div style='padding: 1rem 0;'>
-                """, unsafe_allow_html=True)
+                    <div class='summary-metrics'>
+                """
                 
                 premium_items = list(ls_data['monthly_premiums'].items())
                 
-                # First row (up to 6 months)
-                if len(premium_items) > 0:
-                    cols = st.columns(min(6, len(premium_items)))
-                    for i, (month, amount) in enumerate(premium_items[:6]):
-                        with cols[i]:
-                            st.markdown(f"""
-                            <div style='background-color: #3d3d3d; padding: 1.5rem; border-radius: 6px; text-align: center;'>
-                                <div style='color: #AAAAAA; font-size: 0.95rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.75rem;'>{month}</div>
-                                <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{format_currency(amount)}</div>
-                            </div>
-                            """, unsafe_allow_html=True)
+                # First row (first 6 months)
+                for i, (month, amount) in enumerate(premium_items[:6]):
+                    premium_html += f"""
+                        <div class='metric-item' style='background-color: #3d3d3d; padding: 1.5rem; border-radius: 6px;'>
+                            <div class='metric-label'>{month}</div>
+                            <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700; margin-top: 0.5rem;'>{format_currency(amount)}</div>
+                        </div>
+                    """
+                
+                premium_html += "</div>"  # Close first row
                 
                 # Second row (remaining months)
                 if len(premium_items) > 6:
-                    st.markdown("<div style='margin-top: 1rem;'></div>", unsafe_allow_html=True)
-                    remaining = premium_items[6:]
-                    cols = st.columns(len(remaining))
-                    for i, (month, amount) in enumerate(remaining):
-                        with cols[i]:
-                            st.markdown(f"""
-                            <div style='background-color: #3d3d3d; padding: 1.5rem; border-radius: 6px; text-align: center;'>
-                                <div style='color: #AAAAAA; font-size: 0.95rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.75rem;'>{month}</div>
-                                <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{format_currency(amount)}</div>
+                    premium_html += "<div class='summary-metrics' style='margin-top: 1.5rem;'>"
+                    for month, amount in premium_items[6:]:
+                        premium_html += f"""
+                            <div class='metric-item' style='background-color: #3d3d3d; padding: 1.5rem; border-radius: 6px;'>
+                                <div class='metric-label'>{month}</div>
+                                <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700; margin-top: 0.5rem;'>{format_currency(amount)}</div>
                             </div>
-                            """, unsafe_allow_html=True)
+                        """
+                    premium_html += "</div>"  # Close second row
                 
-                st.markdown("</div></div>", unsafe_allow_html=True)
+                premium_html += "</div>"  # Close summary-box
+                
+                st.markdown(premium_html, unsafe_allow_html=True)
             
             # Policy Details Table
             st.markdown("<h3 style='color: #FFFFFF; margin-top: 2rem; font-size: 1.4rem;'>📋 Policy Details</h3>", unsafe_allow_html=True)
