@@ -1208,35 +1208,29 @@ if master_file:
             
             # Monthly Premium Projections
             if ls_data['monthly_premiums']:
-                premium_items = list(ls_data['monthly_premiums'].items())
-                
-                # Build the complete HTML for the premium projections box
-                premium_html = """
+                st.markdown("""
                 <div class='summary-box'>
                     <div class='summary-title'>💵 Monthly Premium Projections</div>
-                """
+                    <div style='padding: 1rem 0;'>
+                """, unsafe_allow_html=True)
+                
+                premium_items = list(ls_data['monthly_premiums'].items())
                 
                 # Create rows of 6 months each
                 for i in range(0, len(premium_items), 6):
-                    month_row = premium_items[i:i+6]
-                    
-                    # Create grid HTML for this row
-                    premium_html += "<div style='display: grid; grid-template-columns: repeat({}, 1fr); gap: 2rem; margin-bottom: 1.5rem;'>".format(len(month_row))
-                    
-                    for month, amount in month_row:
-                        premium_html += """
-                        <div class='metric-item'>
-                            <div class='metric-label'>{}</div>
-                            <div style='color: #FFFFFF; font-size: 1.6rem; font-weight: 700;'>{}</div>
-                        </div>
-                        """.format(month, format_currency(amount))
-                    
-                    premium_html += "</div>"
+                    cols = st.columns(6)
+                    for j in range(6):
+                        if i + j < len(premium_items):
+                            month, amount = premium_items[i + j]
+                            with cols[j]:
+                                st.markdown(f"""
+                                <div style='text-align: center;'>
+                                    <div style='color: #AAAAAA; font-size: 0.95rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem;'>{month}</div>
+                                    <div style='color: #FFFFFF; font-size: 1.6rem; font-weight: 700;'>{format_currency(amount)}</div>
+                                </div>
+                                """, unsafe_allow_html=True)
                 
-                premium_html += "</div>"
-                
-                # Display the complete HTML
-                st.markdown(premium_html, unsafe_allow_html=True)
+                st.markdown("</div></div>", unsafe_allow_html=True)
             
             # Policy Details Table
             st.markdown("<h3 style='color: #FFFFFF; margin-top: 2rem; font-size: 1.4rem;'>📋 Policy Details</h3>", unsafe_allow_html=True)
