@@ -1208,57 +1208,40 @@ if master_file:
             
             # Monthly Premium Projections
             if ls_data['monthly_premiums']:
-                st.markdown("""
+                premium_items = list(ls_data['monthly_premiums'].items())
+                
+                # Build the HTML for the entire premium projections box
+                premium_html = """
                 <div class='summary-box'>
                     <div class='summary-title'>💵 Monthly Premium Projections</div>
-                </div>
-                """, unsafe_allow_html=True)
+                """
                 
-                # Use a container with custom padding
-                with st.container():
-                    # Apply styling to create the appearance of being inside the box
-                    st.markdown("""
-                    <style>
-                    div[data-testid="stHorizontalBlock"] > div {
-                        background-color: #2d2d2d;
-                        padding: 1.5rem;
-                        margin: -1rem -1rem 0 -1rem;
-                        border-radius: 0 0 8px 8px;
-                    }
-                    </style>
-                    """, unsafe_allow_html=True)
-                    
-                    premium_items = list(ls_data['monthly_premiums'].items())
-                    
-                    # First row
-                    if len(premium_items) > 0:
-                        cols = st.columns(6)
-                        for i in range(min(6, len(premium_items))):
-                            month, amount = premium_items[i]
-                            with cols[i]:
-                                # Create individual premium boxes
-                                st.markdown(f"""
-                                <div style='background-color: #3d3d3d; padding: 1.2rem; border-radius: 6px; text-align: center; height: 100%;'>
-                                    <div style='color: #AAAAAA; font-size: 0.85rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;'>{month}</div>
-                                    <div style='color: #FFFFFF; font-size: 1.6rem; font-weight: 700; margin-top: 0.5rem;'>{format_currency(amount)}</div>
-                                </div>
-                                """, unsafe_allow_html=True)
-                    
-                    # Add spacing between rows
-                    if len(premium_items) > 6:
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        
-                        # Second row
-                        cols = st.columns(6)
-                        for i in range(6, min(12, len(premium_items))):
-                            month, amount = premium_items[i]
-                            with cols[i-6]:
-                                st.markdown(f"""
-                                <div style='background-color: #3d3d3d; padding: 1.2rem; border-radius: 6px; text-align: center; height: 100%;'>
-                                    <div style='color: #AAAAAA; font-size: 0.85rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;'>{month}</div>
-                                    <div style='color: #FFFFFF; font-size: 1.6rem; font-weight: 700; margin-top: 0.5rem;'>{format_currency(amount)}</div>
-                                </div>
-                                """, unsafe_allow_html=True)
+                # First row (first 6 months)
+                if len(premium_items) > 0:
+                    premium_html += "<div class='summary-metrics'>"
+                    for month, amount in premium_items[:6]:
+                        premium_html += f"""
+                            <div class='metric-item'>
+                                <div class='metric-label'>{month}</div>
+                                <div class='metric-value'>{format_currency(amount)}</div>
+                            </div>
+                        """
+                    premium_html += "</div>"
+                
+                # Second row (remaining months)
+                if len(premium_items) > 6:
+                    premium_html += "<div class='summary-metrics' style='margin-top: 2rem;'>"
+                    for month, amount in premium_items[6:]:
+                        premium_html += f"""
+                            <div class='metric-item'>
+                                <div class='metric-label'>{month}</div>
+                                <div class='metric-value'>{format_currency(amount)}</div>
+                            </div>
+                        """
+                    premium_html += "</div>"
+                
+                premium_html += "</div>"
+                st.markdown(premium_html, unsafe_allow_html=True)
             
             # Policy Details Table
             st.markdown("<h3 style='color: #FFFFFF; margin-top: 2rem; font-size: 1.4rem;'>📋 Policy Details</h3>", unsafe_allow_html=True)
