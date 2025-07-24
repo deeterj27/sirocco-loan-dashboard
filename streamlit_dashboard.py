@@ -1208,29 +1208,54 @@ if master_file:
             
             # Monthly Premium Projections
             if ls_data['monthly_premiums']:
-                st.markdown("""
+                # Create the premium projections box with proper grid styling
+                premium_html = """
                 <div class='summary-box'>
                     <div class='summary-title'>💵 Monthly Premium Projections</div>
-                    <div style='padding: 1rem 0;'>
-                """, unsafe_allow_html=True)
+                """
                 
                 premium_items = list(ls_data['monthly_premiums'].items())
                 
-                # Create rows of 6 months each
-                for i in range(0, len(premium_items), 6):
-                    cols = st.columns(6)
-                    for j in range(6):
-                        if i + j < len(premium_items):
-                            month, amount = premium_items[i + j]
-                            with cols[j]:
-                                st.markdown(f"""
-                                <div style='text-align: center;'>
-                                    <div style='color: #AAAAAA; font-size: 0.95rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem;'>{month}</div>
-                                    <div style='color: #FFFFFF; font-size: 1.6rem; font-weight: 700;'>{format_currency(amount)}</div>
-                                </div>
-                                """, unsafe_allow_html=True)
+                # Process all months at once in a grid
+                if len(premium_items) <= 6:
+                    # Single row if 6 or fewer months
+                    premium_html += f"<div style='display: grid; grid-template-columns: repeat({len(premium_items)}, 1fr); gap: 2rem;'>"
+                    for month, amount in premium_items:
+                        premium_html += f"""
+                        <div class='metric-item'>
+                            <div class='metric-label'>{month}</div>
+                            <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{format_currency(amount)}</div>
+                        </div>
+                        """
+                    premium_html += "</div>"
+                else:
+                    # Two rows if more than 6 months
+                    # First row
+                    premium_html += "<div style='display: grid; grid-template-columns: repeat(6, 1fr); gap: 2rem; margin-bottom: 2rem;'>"
+                    for month, amount in premium_items[:6]:
+                        premium_html += f"""
+                        <div class='metric-item'>
+                            <div class='metric-label'>{month}</div>
+                            <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{format_currency(amount)}</div>
+                        </div>
+                        """
+                    premium_html += "</div>"
+                    
+                    # Second row
+                    remaining_items = premium_items[6:]
+                    if remaining_items:
+                        premium_html += f"<div style='display: grid; grid-template-columns: repeat({len(remaining_items)}, 1fr); gap: 2rem;'>"
+                        for month, amount in remaining_items:
+                            premium_html += f"""
+                            <div class='metric-item'>
+                                <div class='metric-label'>{month}</div>
+                                <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{format_currency(amount)}</div>
+                            </div>
+                            """
+                        premium_html += "</div>"
                 
-                st.markdown("</div></div>", unsafe_allow_html=True)
+                premium_html += "</div>"
+                st.markdown(premium_html, unsafe_allow_html=True)
             
             # Policy Details Table
             st.markdown("<h3 style='color: #FFFFFF; margin-top: 2rem; font-size: 1.4rem;'>📋 Policy Details</h3>", unsafe_allow_html=True)
