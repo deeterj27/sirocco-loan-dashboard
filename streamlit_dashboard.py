@@ -1208,54 +1208,51 @@ if master_file:
             
             # Monthly Premium Projections
             if ls_data['monthly_premiums']:
-                # Create the premium projections box with proper grid styling
-                premium_html = """
+                st.markdown("""
                 <div class='summary-box'>
                     <div class='summary-title'>💵 Monthly Premium Projections</div>
-                """
+                </div>
+                """, unsafe_allow_html=True)
                 
+                # Use Streamlit columns inside the styled container
                 premium_items = list(ls_data['monthly_premiums'].items())
                 
-                # Process all months at once in a grid
-                if len(premium_items) <= 6:
-                    # Single row if 6 or fewer months
-                    premium_html += f"<div style='display: grid; grid-template-columns: repeat({len(premium_items)}, 1fr); gap: 2rem;'>"
-                    for month, amount in premium_items:
-                        premium_html += f"""
-                        <div class='metric-item'>
-                            <div class='metric-label'>{month}</div>
-                            <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{format_currency(amount)}</div>
-                        </div>
-                        """
-                    premium_html += "</div>"
-                else:
-                    # Two rows if more than 6 months
-                    # First row
-                    premium_html += "<div style='display: grid; grid-template-columns: repeat(6, 1fr); gap: 2rem; margin-bottom: 2rem;'>"
-                    for month, amount in premium_items[:6]:
-                        premium_html += f"""
-                        <div class='metric-item'>
-                            <div class='metric-label'>{month}</div>
-                            <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{format_currency(amount)}</div>
-                        </div>
-                        """
-                    premium_html += "</div>"
+                # Create container for the premiums
+                with st.container():
+                    # Add custom styling for this section
+                    st.markdown("""
+                    <style>
+                    .premium-container {
+                        background-color: #2d2d2d;
+                        padding: 0 2rem 2rem 2rem;
+                        margin-top: -1rem;
+                        border-radius: 0 0 8px 8px;
+                        border: 1px solid #3d3d3d;
+                        border-top: none;
+                    }
+                    </style>
+                    <div class='premium-container'>
+                    """, unsafe_allow_html=True)
                     
-                    # Second row
-                    remaining_items = premium_items[6:]
-                    if remaining_items:
-                        premium_html += f"<div style='display: grid; grid-template-columns: repeat({len(remaining_items)}, 1fr); gap: 2rem;'>"
-                        for month, amount in remaining_items:
-                            premium_html += f"""
-                            <div class='metric-item'>
-                                <div class='metric-label'>{month}</div>
-                                <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{format_currency(amount)}</div>
-                            </div>
-                            """
-                        premium_html += "</div>"
-                
-                premium_html += "</div>"
-                st.markdown(premium_html, unsafe_allow_html=True)
+                    # First row (up to 6 months)
+                    if len(premium_items) > 0:
+                        cols = st.columns(min(6, len(premium_items)))
+                        for i, (month, amount) in enumerate(premium_items[:6]):
+                            with cols[i]:
+                                st.markdown(f"<div style='text-align: center; color: #AAAAAA; font-size: 0.95rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;'>{month}</div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='text-align: center; color: #FFFFFF; font-size: 1.8rem; font-weight: 700; margin-top: 0.5rem;'>{format_currency(amount)}</div>", unsafe_allow_html=True)
+                    
+                    # Second row (remaining months)
+                    if len(premium_items) > 6:
+                        st.markdown("<div style='margin-top: 2rem;'></div>", unsafe_allow_html=True)
+                        remaining = premium_items[6:]
+                        cols = st.columns(len(remaining))
+                        for i, (month, amount) in enumerate(remaining):
+                            with cols[i]:
+                                st.markdown(f"<div style='text-align: center; color: #AAAAAA; font-size: 0.95rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;'>{month}</div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='text-align: center; color: #FFFFFF; font-size: 1.8rem; font-weight: 700; margin-top: 0.5rem;'>{format_currency(amount)}</div>", unsafe_allow_html=True)
+                    
+                    st.markdown("</div>", unsafe_allow_html=True)
             
             # Policy Details Table
             st.markdown("<h3 style='color: #FFFFFF; margin-top: 2rem; font-size: 1.4rem;'>📋 Policy Details</h3>", unsafe_allow_html=True)
