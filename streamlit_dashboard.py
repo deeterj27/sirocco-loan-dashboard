@@ -670,6 +670,7 @@ if master_file:
             border-radius: 8px;
             padding: 2rem;
             margin-bottom: 1.5rem;
+            overflow: visible;
         }
         .summary-title {
             color: #FDB813;
@@ -798,20 +799,20 @@ if master_file:
                         <div class='metric-subvalue'>({:.0f} months)</div>
                     </div>
                 </div>
-                <div style='margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #3d3d3d;'>
-                    <div style='display: grid; grid-template-columns: repeat(3, 1fr); gap: 3rem;'>
-                        <div style='text-align: center;'>
-                            <div class='metric-label'>Amortizing Loans</div>
+                <div style='margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #3d3d3d; min-height: 120px;'>
+                    <div style='display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; width: 100%;'>
+                        <div style='text-align: center; padding: 0.5rem;'>
+                            <div class='metric-label' style='margin-bottom: 0.5rem;'>Amortizing Loans</div>
                             <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{}</div>
                         </div>
-                        <div style='text-align: center;'>
-                            <div class='metric-label'>Interest Only</div>
+                        <div style='text-align: center; padding: 0.5rem;'>
+                            <div class='metric-label' style='margin-bottom: 0.5rem;'>Interest Only</div>
                             <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{}</div>
                         </div>
-                        <div style='text-align: center;'>
-                            <div class='metric-label'>Average Loan Age</div>
+                        <div style='text-align: center; padding: 0.5rem;'>
+                            <div class='metric-label' style='margin-bottom: 0.5rem;'>Average Loan Age</div>
                             <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{:.1f} yrs</div>
-                            <div style='color: #999999; font-size: 1rem;'>({:.0f} months)</div>
+                            <div style='color: #999999; font-size: 1rem; margin-top: 0.25rem;'>({:.0f} months)</div>
                         </div>
                     </div>
                 </div>
