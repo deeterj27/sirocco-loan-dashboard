@@ -639,6 +639,12 @@ if master_file:
         closed_loans = loans_df[loans_df['Status'] == 'Closed'].copy()
         not_started_loans = loans_df[loans_df['Status'] == 'Not Started'].copy()
         
+        # Fix the count issue - ensure we're counting correctly
+        # Remove any duplicate counting
+        active_loans = active_loans.drop_duplicates(subset=['Sheet'])
+        closed_loans = closed_loans.drop_duplicates(subset=['Sheet'])
+        not_started_loans = not_started_loans.drop_duplicates(subset=['Sheet'])
+        
         # Sort by current balance or original balance
         active_loans = active_loans.sort_values('Current Loan Balance', ascending=False)
         closed_loans = closed_loans.sort_values('Original Loan Balance', ascending=False)
@@ -803,7 +809,7 @@ if master_file:
                             <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{}</div>
                         </div>
                         <div style='text-align: center;'>
-                            <div class='metric-label'>Avg Loan Age</div>
+                            <div class='metric-label'>Average Loan Age</div>
                             <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{:.1f} yrs</div>
                             <div style='color: #999999; font-size: 1rem;'>({:.0f} months)</div>
                         </div>
@@ -1343,14 +1349,26 @@ if master_file:
             if ls_data['policies']:
                 policies_df = pd.DataFrame(ls_data['policies'])
                 
+                # Calculate unrealized gain/loss for each policy
+                policies_df['Unrealized_Gain_Loss'] = policies_df['Valuation'] - policies_df['Cost_Basis']
+                policies_df['Gain_Loss_Pct'] = (policies_df['Unrealized_Gain_Loss'] / policies_df['Cost_Basis'] * 100).fillna(0)
+                
                 # Format for display
                 display_policy_df = policies_df.copy()
                 display_policy_df['NDB'] = display_policy_df['NDB'].apply(format_currency)
-                display_policy_df['Valuation'] = display_policy_df['Valuation'].apply(format_currency)
                 display_policy_df['Cost_Basis'] = display_policy_df['Cost_Basis'].apply(format_currency)
+                display_policy_df['Valuation'] = display_policy_df['Valuation'].apply(format_currency)
+                
+                # Format unrealized gain/loss with color coding
+                def format_gain_loss(value):
+                    if value >= 0:
+                        return f"<span style='color: #4ECDC4;'>{format_currency(value)}</span>"
+                    else:
+                        return f"<span style='color: #FF6B6B;'>{format_currency(value)}</span>"
+                
+                display_policy_df['Unrealized_Gain_Loss_Display'] = display_policy_df['Unrealized_Gain_Loss'].apply(format_gain_loss)
                 display_policy_df['Annual_Premium'] = display_policy_df['Annual_Premium'].apply(format_currency)
                 display_policy_df['Premium_Pct_Face'] = display_policy_df['Premium_Pct_Face'].apply(lambda x: f"{x:.2f}%")
-                display_policy_df['Remaining_LE'] = display_policy_df['Remaining_LE'].apply(lambda x: f"{x:.1f} months" if x > 0 else "N/A")
                 
                 # Rename columns
                 display_policy_df = display_policy_df.rename(columns={
@@ -1359,15 +1377,57 @@ if master_file:
                     'Age': 'Age',
                     'Gender': 'Gender',
                     'NDB': 'Face Value',
-                    'Valuation': 'Valuation',
                     'Cost_Basis': 'Cost Basis',
-                    'Remaining_LE': 'Remaining LE',
+                    'Valuation': 'Valuation',
+                    'Unrealized_Gain_Loss_Display': 'Unrealized Gain/(Loss)',
                     'Annual_Premium': 'Annual Premium',
                     'Premium_Pct_Face': 'Premium % Face'
                 })
                 
-                st.dataframe(display_policy_df[['Policy ID', 'Name', 'Age', 'Gender', 'Face Value', 'Valuation', 'Annual Premium', 'Premium % Face']], 
-                            use_container_width=True, hide_index=True)
+                # Create HTML table for better formatting
+                table_html = """
+                <div style='background-color: #2d2d2d; padding: 1rem; border-radius: 8px; overflow-x: auto;'>
+                    <table style='width: 100%; color: white; border-collapse: collapse;'>
+                        <thead>
+                            <tr style='background-color: #FDB813; color: #1a1a1a;'>
+                                <th style='padding: 0.75rem; text-align: left; font-weight: 600;'>Policy ID</th>
+                                <th style='padding: 0.75rem; text-align: left; font-weight: 600;'>Name</th>
+                                <th style='padding: 0.75rem; text-align: center; font-weight: 600;'>Age</th>
+                                <th style='padding: 0.75rem; text-align: center; font-weight: 600;'>Gender</th>
+                                <th style='padding: 0.75rem; text-align: right; font-weight: 600;'>Face Value</th>
+                                <th style='padding: 0.75rem; text-align: right; font-weight: 600;'>Cost Basis</th>
+                                <th style='padding: 0.75rem; text-align: right; font-weight: 600;'>Valuation</th>
+                                <th style='padding: 0.75rem; text-align: right; font-weight: 600;'>Unrealized Gain/(Loss)</th>
+                                <th style='padding: 0.75rem; text-align: right; font-weight: 600;'>Annual Premium</th>
+                                <th style='padding: 0.75rem; text-align: right; font-weight: 600;'>Premium % Face</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                """
+                
+                for _, row in display_policy_df.iterrows():
+                    table_html += f"""
+                        <tr style='border-bottom: 1px solid #3d3d3d;'>
+                            <td style='padding: 0.75rem;'>{row['Policy ID']}</td>
+                            <td style='padding: 0.75rem;'>{row['Name']}</td>
+                            <td style='padding: 0.75rem; text-align: center;'>{row['Age']:.0f}</td>
+                            <td style='padding: 0.75rem; text-align: center;'>{row['Gender']}</td>
+                            <td style='padding: 0.75rem; text-align: right;'>{row['Face Value']}</td>
+                            <td style='padding: 0.75rem; text-align: right;'>{row['Cost Basis']}</td>
+                            <td style='padding: 0.75rem; text-align: right;'>{row['Valuation']}</td>
+                            <td style='padding: 0.75rem; text-align: right;'>{row['Unrealized Gain/(Loss)']}</td>
+                            <td style='padding: 0.75rem; text-align: right;'>{row['Annual Premium']}</td>
+                            <td style='padding: 0.75rem; text-align: right;'>{row['Premium % Face']}</td>
+                        </tr>
+                    """
+                
+                table_html += """
+                        </tbody>
+                    </table>
+                </div>
+                """
+                
+                st.markdown(table_html, unsafe_allow_html=True)
         
     except Exception as e:
         st.error(f"Error processing master file: {str(e)}")
