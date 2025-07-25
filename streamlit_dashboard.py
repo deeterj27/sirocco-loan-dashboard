@@ -603,9 +603,36 @@ if master_file:
             st.write(f"Total sheets found: {len(loan_sheets)}")
             st.write(f"Total loans processed: {len(loans_df)}")
             st.write("Sheets processed:", loan_sheets)
+            
+            # Show loan status breakdown
+            st.write("\nLoan Status Breakdown:")
+            status_counts = loans_df['Status'].value_counts()
+            st.write(status_counts)
+            
+            # Show loans by status with key fields
+            st.write("\nLoans by Status:")
+            for status in ['Active', 'Closed', 'Not Started']:
+                st.write(f"\n{status} Loans:")
+                status_loans = loans_df[loans_df['Status'] == status][['Sheet', 'Borrower', 'Original Loan Balance', 'Current Loan Balance', 'Status']].copy()
+                st.dataframe(status_loans)
+            
             missing_sheets = set(loan_sheets) - set(loans_df['Sheet'].tolist())
             if missing_sheets:
                 st.warning(f"Sheets not showing in tables: {missing_sheets}")
+            
+            # Check for any loans that might be miscategorized
+            st.write("\nPotential Issues:")
+            # Active loans with zero balance
+            active_zero_balance = loans_df[(loans_df['Status'] == 'Active') & (loans_df['Current Loan Balance'] == 0)]
+            if len(active_zero_balance) > 0:
+                st.warning("Active loans with zero balance found:")
+                st.dataframe(active_zero_balance[['Sheet', 'Borrower', 'Current Loan Balance']])
+            
+            # Closed loans with non-zero balance
+            closed_nonzero = loans_df[(loans_df['Status'] == 'Closed') & (loans_df['Current Loan Balance'] > 0)]
+            if len(closed_nonzero) > 0:
+                st.warning("Closed loans with non-zero balance found:")
+                st.dataframe(closed_nonzero[['Sheet', 'Borrower', 'Current Loan Balance']])
         
         # Separate loans by status
         active_loans = loans_df[loans_df['Status'] == 'Active'].copy()
@@ -706,25 +733,41 @@ if master_file:
         
         # Active Loans Summary Box
         if len(active_loans) > 0:
-            # Calculate weighted average interest rate
-            active_loans['Weighted_Rate'] = active_loans['Original Loan Balance'] * active_loans['Annual Interest Rate']
-            weighted_avg_rate = active_loans['Weighted_Rate'].sum() / active_orig_balance if active_orig_balance > 0 else 0
+            # Calculate weighted average interest rate (excluding opportunity fund)
+            # Filter out loans with unusually high interest rates (>30%)
+            reasonable_rate_loans = active_loans[active_loans['Annual Interest Rate'] <= 0.30].copy()
+            if len(reasonable_rate_loans) > 0:
+                reasonable_rate_loans['Weighted_Rate'] = reasonable_rate_loans['Original Loan Balance'] * reasonable_rate_loans['Annual Interest Rate']
+                weighted_avg_rate = reasonable_rate_loans['Weighted_Rate'].sum() / reasonable_rate_loans['Original Loan Balance'].sum()
+            else:
+                weighted_avg_rate = 0
             
             # Count amortizing vs interest only loans
             amortizing_loans = len(active_loans[~active_loans['Is Interest Only']])
             interest_only_loans = len(active_loans[active_loans['Is Interest Only']])
             
-            # Calculate average maturity
+            # Calculate average maturity and average age
             today = pd.Timestamp.now()
             active_loans['Maturity Date'] = pd.to_datetime(active_loans['Maturity Date'])
-            valid_maturities = active_loans[active_loans['Maturity Date'] > today]['Maturity Date']
+            active_loans['Loan Start Date'] = pd.to_datetime(active_loans['Loan Start Date'])
             
+            # Average maturity calculation
+            valid_maturities = active_loans[active_loans['Maturity Date'] > today]['Maturity Date']
             if len(valid_maturities) > 0:
                 avg_months_to_maturity = (valid_maturities - today).dt.days.mean() / 30.44
                 avg_years_to_maturity = avg_months_to_maturity / 12
             else:
                 avg_months_to_maturity = 0
                 avg_years_to_maturity = 0
+            
+            # Average age calculation
+            valid_start_dates = active_loans[active_loans['Loan Start Date'] <= today]['Loan Start Date']
+            if len(valid_start_dates) > 0:
+                avg_months_since_start = (today - valid_start_dates).dt.days.mean() / 30.44
+                avg_years_since_start = avg_months_since_start / 12
+            else:
+                avg_months_since_start = 0
+                avg_years_since_start = 0
             
             st.markdown("""
             <div class='summary-box'>
@@ -741,6 +784,7 @@ if master_file:
                     <div class='metric-item'>
                         <div class='metric-label'>Avg Interest Rate</div>
                         <div class='metric-value'>{}</div>
+                        <div class='metric-subvalue' style='color: #888888; font-size: 0.9rem;'>(excl. high-rate loans)</div>
                     </div>
                     <div class='metric-item'>
                         <div class='metric-label'>Avg Maturity</div>
@@ -749,7 +793,7 @@ if master_file:
                     </div>
                 </div>
                 <div style='margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #3d3d3d;'>
-                    <div style='display: flex; justify-content: center; gap: 4rem;'>
+                    <div style='display: grid; grid-template-columns: repeat(3, 1fr); gap: 3rem;'>
                         <div style='text-align: center;'>
                             <div class='metric-label'>Amortizing Loans</div>
                             <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{}</div>
@@ -757,6 +801,11 @@ if master_file:
                         <div style='text-align: center;'>
                             <div class='metric-label'>Interest Only</div>
                             <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{}</div>
+                        </div>
+                        <div style='text-align: center;'>
+                            <div class='metric-label'>Avg Loan Age</div>
+                            <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{:.1f} yrs</div>
+                            <div style='color: #999999; font-size: 1rem;'>({:.0f} months)</div>
                         </div>
                     </div>
                 </div>
@@ -768,7 +817,9 @@ if master_file:
                 avg_years_to_maturity,
                 avg_months_to_maturity,
                 amortizing_loans,
-                interest_only_loans
+                interest_only_loans,
+                avg_years_since_start,
+                avg_months_since_start
             ), unsafe_allow_html=True)
         else:
             st.markdown("""
@@ -933,8 +984,8 @@ if master_file:
             
             st.dataframe(not_started_display, use_container_width=True, hide_index=True)
         
-        # Cash flow projection
-        st.markdown("<h2 style='color: #FDB813; margin-top: 2rem;'>💸 Cash Flow Projection (Next 6 Months)</h2>", unsafe_allow_html=True)
+        # Cash flow projection - Updated to 12 months
+        st.markdown("<h2 style='color: #FDB813; margin-top: 2rem;'>💸 Cash Flow Projection (Next 12 Months)</h2>", unsafe_allow_html=True)
         
         today = datetime.now()
         cashflow_data = []
@@ -946,7 +997,7 @@ if master_file:
             if 'Month' in amort_df.columns and 'Loan Repayment' in amort_df.columns:
                 amort_df['Month'] = pd.to_datetime(amort_df['Month'])
                 upcoming = amort_df[(amort_df['Month'] > today) & 
-                                  (amort_df['Month'] <= today + relativedelta(months=6))]
+                                  (amort_df['Month'] <= today + relativedelta(months=12))]
                 
                 for _, row in upcoming.iterrows():
                     cashflow_data.append({
@@ -974,24 +1025,73 @@ if master_file:
             
             monthly_summary['Month'] = monthly_summary['Month'].astype(str)
             
+            # Identify months with large payments (>$500k)
+            monthly_summary['Is_Large'] = monthly_summary['Payment Amount'] > 500000
+            
+            # Create styled display
+            st.markdown("""
+            <style>
+            .cashflow-highlight {
+                background-color: #3d3d3d !important;
+                border: 2px solid #FDB813 !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+            
             col1, col2 = st.columns([3, 1])
             
             with col1:
                 display_summary = monthly_summary.copy()
-                for col in ['Payment Amount', 'Interest', 'Principal']:
-                    display_summary[col] = display_summary[col].apply(format_currency)
                 
-                st.dataframe(display_summary, use_container_width=True, hide_index=True)
+                # Create HTML table with highlighting
+                table_html = "<div style='background-color: #2d2d2d; padding: 1rem; border-radius: 8px;'>"
+                table_html += "<table style='width: 100%; color: white;'>"
+                table_html += "<thead><tr style='border-bottom: 2px solid #FDB813;'>"
+                table_html += "<th style='padding: 0.75rem; text-align: left;'>Month</th>"
+                table_html += "<th style='padding: 0.75rem; text-align: right;'>Payment Amount</th>"
+                table_html += "<th style='padding: 0.75rem; text-align: right;'>Interest</th>"
+                table_html += "<th style='padding: 0.75rem; text-align: right;'>Principal</th>"
+                table_html += "</tr></thead><tbody>"
+                
+                for idx, row in display_summary.iterrows():
+                    row_class = "cashflow-highlight" if row['Is_Large'] else ""
+                    table_html += f"<tr class='{row_class}' style='border-bottom: 1px solid #3d3d3d;'>"
+                    table_html += f"<td style='padding: 0.75rem;'>{row['Month']}</td>"
+                    table_html += f"<td style='padding: 0.75rem; text-align: right; font-weight: {'bold' if row['Is_Large'] else 'normal'}; color: {'#FDB813' if row['Is_Large'] else '#FFFFFF'};'>{format_currency(row['Payment Amount'])}</td>"
+                    table_html += f"<td style='padding: 0.75rem; text-align: right;'>{format_currency(row['Interest'])}</td>"
+                    table_html += f"<td style='padding: 0.75rem; text-align: right;'>{format_currency(row['Principal'])}</td>"
+                    table_html += "</tr>"
+                
+                table_html += "</tbody></table></div>"
+                st.markdown(table_html, unsafe_allow_html=True)
+                
+                # Add note about highlighted months
+                large_months = monthly_summary[monthly_summary['Is_Large']]['Month'].tolist()
+                if large_months:
+                    st.info(f"⭐ Highlighted months have payments exceeding $500,000: {', '.join(large_months)}")
             
             with col2:
                 total_expected = monthly_summary['Payment Amount'].sum()
                 total_interest = monthly_summary['Interest'].sum()
                 total_principal = monthly_summary['Principal'].sum()
-                st.metric("Total Expected", format_currency(total_expected))
+                avg_monthly = total_expected / len(monthly_summary) if len(monthly_summary) > 0 else 0
+                
+                st.metric("12-Month Total", format_currency(total_expected))
                 st.metric("Total Interest", format_currency(total_interest))
                 st.metric("Total Principal", format_currency(total_principal))
+                st.metric("Monthly Average", format_currency(avg_monthly))
+                
+                # Add breakdown by quarter
+                st.markdown("<h4 style='color: #FDB813; margin-top: 2rem;'>Quarterly View</h4>", unsafe_allow_html=True)
+                
+                # Calculate quarters
+                cashflow_df['Quarter'] = cashflow_df['Payment Date'].dt.to_period('Q')
+                quarterly_summary = cashflow_df.groupby('Quarter')['Payment Amount'].sum()
+                
+                for quarter, amount in quarterly_summary.items():
+                    st.metric(f"{quarter}", format_currency(amount))
         else:
-            st.info("No upcoming payments in the next 6 months")
+            st.info("No upcoming payments in the next 12 months")
 
         # Cashflow vs Premium Analysis (if both data sources are available)
         if cashflow_data and ls_data and ls_data['monthly_premiums']:
@@ -1152,7 +1252,7 @@ if master_file:
         if ls_data:
             st.markdown("<h2 style='color: #FDB813; margin-top: 3rem; font-size: 2rem;'>🏥 Life Settlement Portfolio</h2>", unsafe_allow_html=True)
             
-            # Key Metrics Box
+            # Key Metrics Box with Unrealized Gain/Loss
             st.markdown("""
             <div class='summary-box'>
                 <div class='summary-title'>📊 Portfolio Metrics</div>
@@ -1166,40 +1266,50 @@ if master_file:
                         <div class='metric-value'>{}</div>
                     </div>
                     <div class='metric-item'>
-                        <div class='metric-label'>Total Valuation</div>
-                        <div class='metric-value'>{}</div>
-                    </div>
-                    <div class='metric-item'>
                         <div class='metric-label'>Cost Basis</div>
                         <div class='metric-value'>{}</div>
                     </div>
+                    <div class='metric-item'>
+                        <div class='metric-label'>Total Valuation</div>
+                        <div class='metric-value'>{}</div>
+                    </div>
                 </div>
-                <div style='margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #3d3d3d;'>
-                    <div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 2rem;'>
-                        <div class='metric-item'>
-                            <div class='metric-label'>Average Age</div>
-                            <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{:.1f} years</div>
+                <div style='margin-top: 1.5rem; padding: 1.5rem; background-color: #3d3d3d; border-radius: 6px;'>
+                    <div style='display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; align-items: center;'>
+                        <div style='text-align: center;'>
+                            <div class='metric-label'>Unrealized Gain/(Loss)</div>
+                            <div style='color: {}; font-size: 2rem; font-weight: 700;'>{}</div>
+                            <div style='color: #999999; font-size: 1rem; margin-top: 0.25rem;'>{:.1f}% return</div>
                         </div>
-                        <div class='metric-item'>
-                            <div class='metric-label'>% Male</div>
-                            <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{:.1f}%</div>
-                        </div>
-                        <div class='metric-item'>
-                            <div class='metric-label'>Avg Remaining LE</div>
-                            <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{:.1f} months</div>
-                        </div>
-                        <div class='metric-item'>
-                            <div class='metric-label'>Premiums % of Face</div>
-                            <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{:.2f}%</div>
+                        <div style='display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem;'>
+                            <div class='metric-item'>
+                                <div class='metric-label'>Average Age</div>
+                                <div style='color: #FFFFFF; font-size: 1.6rem; font-weight: 700;'>{:.1f} years</div>
+                            </div>
+                            <div class='metric-item'>
+                                <div class='metric-label'>% Male</div>
+                                <div style='color: #FFFFFF; font-size: 1.6rem; font-weight: 700;'>{:.1f}%</div>
+                            </div>
+                            <div class='metric-item'>
+                                <div class='metric-label'>Avg Remaining LE</div>
+                                <div style='color: #FFFFFF; font-size: 1.6rem; font-weight: 700;'>{:.1f} months</div>
+                            </div>
                         </div>
                     </div>
+                </div>
+                <div style='margin-top: 1.5rem; text-align: center;'>
+                    <div class='metric-label'>Premiums % of Face</div>
+                    <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{:.2f}%</div>
                 </div>
             </div>
             """.format(
                 ls_data['summary']['total_policies'],
                 format_currency(ls_data['summary']['total_ndb']),
-                format_currency(ls_data['summary']['total_valuation']),
                 format_currency(ls_data['summary']['total_cost_basis']),
+                format_currency(ls_data['summary']['total_valuation']),
+                '#4ECDC4' if ls_data['summary']['total_valuation'] >= ls_data['summary']['total_cost_basis'] else '#FF6B6B',
+                format_currency(ls_data['summary']['total_valuation'] - ls_data['summary']['total_cost_basis']),
+                ((ls_data['summary']['total_valuation'] - ls_data['summary']['total_cost_basis']) / ls_data['summary']['total_cost_basis'] * 100) if ls_data['summary']['total_cost_basis'] > 0 else 0,
                 ls_data['summary']['avg_age'],
                 ls_data['summary']['male_percentage'],
                 ls_data['summary']['avg_remaining_le'],
