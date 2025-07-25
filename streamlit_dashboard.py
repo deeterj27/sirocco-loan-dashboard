@@ -776,6 +776,9 @@ if master_file:
                 avg_months_since_start = 0
                 avg_years_since_start = 0
             
+            # Debug output for average loan age
+            st.write(f"DEBUG - Average Loan Age: {avg_years_since_start:.1f} years ({avg_months_since_start:.0f} months)")
+            
             st.markdown("""
             <div class='summary-box'>
                 <div class='summary-title'>💰 Active Loans Summary</div>
