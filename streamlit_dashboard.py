@@ -779,58 +779,51 @@ if master_file:
             # Debug output for average loan age
             st.write(f"DEBUG - Average Loan Age: {avg_years_since_start:.1f} years ({avg_months_since_start:.0f} months)")
             
-            st.markdown("""
+            # Create the HTML with all values pre-formatted
+            active_loans_html = f"""
             <div class='summary-box'>
                 <div class='summary-title'>💰 Active Loans Summary</div>
                 <div class='summary-metrics'>
                     <div class='metric-item'>
                         <div class='metric-label'>Original Balance</div>
-                        <div class='metric-value'>{}</div>
+                        <div class='metric-value'>{format_currency(active_orig_balance)}</div>
                     </div>
                     <div class='metric-item'>
                         <div class='metric-label'>Current Balance</div>
-                        <div class='metric-value'>{}</div>
+                        <div class='metric-value'>{format_currency(active_current_balance)}</div>
                     </div>
                     <div class='metric-item'>
                         <div class='metric-label'>Avg Interest Rate</div>
-                        <div class='metric-value'>{}</div>
+                        <div class='metric-value'>{format_percent(weighted_avg_rate)}</div>
                         <div class='metric-subvalue' style='color: #888888; font-size: 0.9rem;'>(excl. high-rate loans)</div>
                     </div>
                     <div class='metric-item'>
                         <div class='metric-label'>Avg Maturity</div>
-                        <div class='metric-value'>{:.1f} yrs</div>
-                        <div class='metric-subvalue'>({:.0f} months)</div>
+                        <div class='metric-value'>{avg_years_to_maturity:.1f} yrs</div>
+                        <div class='metric-subvalue'>({avg_months_to_maturity:.0f} months)</div>
                     </div>
                 </div>
                 <div style='margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #3d3d3d; min-height: 120px;'>
                     <div style='display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; width: 100%;'>
                         <div style='text-align: center; padding: 0.5rem;'>
                             <div class='metric-label' style='margin-bottom: 0.5rem;'>Amortizing Loans</div>
-                            <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{}</div>
+                            <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{amortizing_loans}</div>
                         </div>
                         <div style='text-align: center; padding: 0.5rem;'>
                             <div class='metric-label' style='margin-bottom: 0.5rem;'>Interest Only</div>
-                            <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{}</div>
+                            <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{interest_only_loans}</div>
                         </div>
                         <div style='text-align: center; padding: 0.5rem;'>
                             <div class='metric-label' style='margin-bottom: 0.5rem;'>Average Loan Age</div>
-                            <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{:.1f} yrs</div>
-                            <div style='color: #999999; font-size: 1rem; margin-top: 0.25rem;'>({:.0f} months)</div>
+                            <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{avg_years_since_start:.1f} yrs</div>
+                            <div style='color: #999999; font-size: 1rem; margin-top: 0.25rem;'>({avg_months_since_start:.0f} months)</div>
                         </div>
                     </div>
                 </div>
             </div>
-            """.format(
-                format_currency(active_orig_balance),
-                format_currency(active_current_balance),
-                format_percent(weighted_avg_rate),
-                avg_years_to_maturity,
-                avg_months_to_maturity,
-                amortizing_loans,
-                interest_only_loans,
-                avg_years_since_start,
-                avg_months_since_start
-            ), unsafe_allow_html=True)
+            """
+            
+            st.markdown(active_loans_html, unsafe_allow_html=True)
         else:
             st.markdown("""
             <div class='summary-box'>
