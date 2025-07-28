@@ -150,18 +150,36 @@ def excel_date_to_datetime(serial_date):
         return pd.NaT
     if isinstance(serial_date, datetime):
         return serial_date
+    
+    # Handle string dates
     if isinstance(serial_date, str):
+        # Clean the string
+        serial_date = serial_date.strip()
+        if not serial_date:
+            return pd.NaT
+        
+        # Try parsing as datetime
         try:
             return pd.to_datetime(serial_date)
         except:
+            # Try converting to float for Excel serial dates
             try:
                 serial_date = float(serial_date)
             except:
                 return pd.NaT
-    try:
-        return pd.to_datetime('1899-12-30') + pd.to_timedelta(serial_date, unit='D')
-    except:
-        return pd.NaT
+    
+    # Handle numeric dates (Excel serial dates)
+    if isinstance(serial_date, (int, float)):
+        try:
+            # Excel dates are days since 1900-01-01 (with some quirks)
+            # For dates after 1900-03-01, subtract 2 days to account for Excel's leap year bug
+            if serial_date > 60:  # After 1900-02-28
+                serial_date = serial_date - 2
+            return pd.to_datetime('1900-01-01') + pd.to_timedelta(serial_date - 1, unit='D')
+        except:
+            return pd.NaT
+    
+    return pd.NaT
 
 def format_currency(value):
     """Format value as currency"""
@@ -408,19 +426,44 @@ if master_file:
                 interest_rate = safe_float(sheet['C4'].value)
                 loan_period = safe_float(sheet['C5'].value)
                 payment_amount_val = sheet['C6'].value
-                # Check both C6 and C7 for loan start date
-                loan_start = excel_date_to_datetime(sheet['C6'].value)
-                if pd.isna(loan_start) or (isinstance(sheet['C6'].value, str) and 'loan' not in str(sheet['C6'].value).lower()):
-                    loan_start = excel_date_to_datetime(sheet['C7'].value)
-                if pd.notna(loan_start) and isinstance(sheet['C6'].value, (datetime, str, int, float)) and not isinstance(sheet['C6'].value, str):
-                    payment_amount_val = None
+                # Try multiple locations for loan start date
+                loan_start = None
+                for date_cell in ['C7', 'C6', 'B7', 'B6']:
+                    date_val = sheet[date_cell].value
+                    if date_val and not isinstance(date_val, str):
+                        loan_start = excel_date_to_datetime(date_val)
+                        if pd.notna(loan_start):
+                            break
+                if pd.isna(loan_start):
+                    # Try string dates
+                    for date_cell in ['C7', 'C6', 'B7', 'B6']:
+                        date_val = sheet[date_cell].value
+                        if isinstance(date_val, str) and len(date_val) > 0:
+                            loan_start = excel_date_to_datetime(date_val)
+                            if pd.notna(loan_start):
+                                break
             else:
                 # Data is in column B
                 loan_amount = safe_float(sheet['B3'].value)
                 interest_rate = safe_float(sheet['B4'].value)
                 loan_period = safe_float(sheet['B5'].value)
                 payment_amount_val = sheet['B6'].value
-                loan_start = excel_date_to_datetime(sheet['B7'].value)
+                # Try multiple locations for loan start date
+                loan_start = None
+                for date_cell in ['B7', 'B6', 'C7', 'C6']:
+                    date_val = sheet[date_cell].value
+                    if date_val and not isinstance(date_val, str):
+                        loan_start = excel_date_to_datetime(date_val)
+                        if pd.notna(loan_start):
+                            break
+                if pd.isna(loan_start):
+                    # Try string dates
+                    for date_cell in ['B7', 'B6', 'C7', 'C6']:
+                        date_val = sheet[date_cell].value
+                        if isinstance(date_val, str) and len(date_val) > 0:
+                            loan_start = excel_date_to_datetime(date_val)
+                            if pd.notna(loan_start):
+                                break
             
             # If still no loan amount, try C3 directly
             if loan_amount == 0:
@@ -429,9 +472,22 @@ if master_file:
                     interest_rate = safe_float(sheet['C4'].value)
                     loan_period = safe_float(sheet['C5'].value)
                     payment_amount_val = sheet['C6'].value
-                    loan_start = excel_date_to_datetime(sheet['C7'].value)
+                    # Try multiple locations for loan start date
+                    loan_start = None
+                    for date_cell in ['C7', 'C6', 'B7', 'B6']:
+                        date_val = sheet[date_cell].value
+                        if date_val and not isinstance(date_val, str):
+                            loan_start = excel_date_to_datetime(date_val)
+                            if pd.notna(loan_start):
+                                break
                     if pd.isna(loan_start):
-                        loan_start = excel_date_to_datetime(sheet['C6'].value)
+                        # Try string dates
+                        for date_cell in ['C7', 'C6', 'B7', 'B6']:
+                            date_val = sheet[date_cell].value
+                            if isinstance(date_val, str) and len(date_val) > 0:
+                                loan_start = excel_date_to_datetime(date_val)
+                                if pd.notna(loan_start):
+                                    break
             
             # Handle payment amount
             if isinstance(payment_amount_val, str) and payment_amount_val.lower() == 'interest only':
