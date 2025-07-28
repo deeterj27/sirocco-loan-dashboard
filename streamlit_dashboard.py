@@ -331,6 +331,9 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# Add version indicator
+st.info("Dashboard Version: 2.0 - WITH UNREALIZED GAIN/LOSS")
+
 # File upload section
 col1, col2, col3 = st.columns(3)
 with col1:
@@ -389,6 +392,100 @@ if master_file:
             """, unsafe_allow_html=True)
         
         st.success(f"✅ Master file loaded: {len(loan_sheets)} loan sheets found")
+        
+        # Display LS data if available (but after all loan data)
+        if ls_data:
+            st.markdown("<h2 style='color: #FDB813; margin-top: 3rem; font-size: 2rem;'>🏥 Life Settlement Portfolio</h2>", unsafe_allow_html=True)
+            
+            # Add a debug message to confirm updates
+            st.success("✅ UPDATED VERSION WITH UNREALIZED GAIN/LOSS")
+            
+            # Key Metrics Box with Unrealized Gain/Loss
+            unrealized_gain_loss = ls_data['summary']['total_valuation'] - ls_data['summary']['total_cost_basis']
+            gain_loss_pct = (unrealized_gain_loss / ls_data['summary']['total_cost_basis'] * 100) if ls_data['summary']['total_cost_basis'] > 0 else 0
+            
+            # Create 5 columns for the metrics
+            col1, col2, col3, col4, col5 = st.columns(5)
+            
+            with col1:
+                st.metric("Total Policies", ls_data['summary']['total_policies'])
+            with col2:
+                st.metric("Total NDB (Face Value)", format_currency(ls_data['summary']['total_ndb']))
+            with col3:
+                st.metric("Total Valuation", format_currency(ls_data['summary']['total_valuation']))
+            with col4:
+                st.metric("Cost Basis", format_currency(ls_data['summary']['total_cost_basis']))
+            with col5:
+                st.metric("Unrealized Gain/(Loss)", 
+                          format_currency(unrealized_gain_loss),
+                          delta=f"{gain_loss_pct:.1f}%",
+                          delta_color="normal" if unrealized_gain_loss >= 0 else "inverse")
+            
+            # Additional metrics in a second row
+            col6, col7, col8, col9 = st.columns(4)
+            
+            with col6:
+                st.metric("Average Age", f"{ls_data['summary']['avg_age']:.1f} years")
+            with col7:
+                st.metric("% Male", f"{ls_data['summary']['male_percentage']:.1f}%")
+            with col8:
+                st.metric("Avg Remaining LE", f"{ls_data['summary']['avg_remaining_le']:.1f} months")
+            with col9:
+                st.metric("Premiums % of Face", f"{ls_data['summary']['premiums_as_pct_face']:.2f}%")
+            
+            # Monthly Premium Projections
+            if ls_data['monthly_premiums']:
+                st.markdown("<h3 style='color: #FDB813; margin-top: 2rem;'>💵 Monthly Premium Projections</h3>", unsafe_allow_html=True)
+                
+                # Create a grid of premium months
+                premium_items = list(ls_data['monthly_premiums'].items())
+                num_months = len(premium_items)
+                cols_per_row = 6
+                
+                for i in range(0, num_months, cols_per_row):
+                    month_batch = premium_items[i:i+cols_per_row]
+                    cols = st.columns(len(month_batch))
+                    
+                    for j, (month, amount) in enumerate(month_batch):
+                        with cols[j]:
+                            st.metric(month, format_currency(amount))
+            
+            # Policy Details Table
+            st.markdown("<h3 style='color: #FFFFFF; margin-top: 2rem; font-size: 1.4rem;'>📋 Policy Details</h3>", unsafe_allow_html=True)
+            
+            if ls_data['policies']:
+                policies_df = pd.DataFrame(ls_data['policies'])
+                
+                # Calculate unrealized gain/loss for each policy
+                policies_df['Unrealized_Gain_Loss'] = policies_df['Valuation'] - policies_df['Cost_Basis']
+                policies_df['Gain_Loss_Pct'] = (policies_df['Unrealized_Gain_Loss'] / policies_df['Cost_Basis'] * 100).fillna(0)
+                
+                # Format for display
+                display_policy_df = policies_df.copy()
+                display_policy_df['NDB'] = display_policy_df['NDB'].apply(format_currency)
+                display_policy_df['Cost_Basis'] = display_policy_df['Cost_Basis'].apply(format_currency)
+                display_policy_df['Valuation'] = display_policy_df['Valuation'].apply(format_currency)
+                display_policy_df['Unrealized_Gain_Loss'] = display_policy_df['Unrealized_Gain_Loss'].apply(format_currency)
+                display_policy_df['Annual_Premium'] = display_policy_df['Annual_Premium'].apply(format_currency)
+                display_policy_df['Premium_Pct_Face'] = display_policy_df['Premium_Pct_Face'].apply(lambda x: f"{x:.2f}%")
+                
+                # Rename columns
+                display_policy_df = display_policy_df.rename(columns={
+                    'Policy_ID': 'Policy ID',
+                    'Name': 'Name',
+                    'Age': 'Age',
+                    'Gender': 'Gender',
+                    'NDB': 'Face Value',
+                    'Cost_Basis': 'Cost Basis',
+                    'Valuation': 'Valuation',
+                    'Unrealized_Gain_Loss': 'Unrealized Gain/(Loss)',
+                    'Annual_Premium': 'Annual Premium',
+                    'Premium_Pct_Face': 'Premium % Face'
+                })
+                
+                # Select columns to display
+                display_columns = ['Policy ID', 'Name', 'Age', 'Gender', 'Face Value', 'Valuation', 'Cost Basis', 'Unrealized Gain/(Loss)', 'Annual Premium', 'Premium % Face']
+                st.dataframe(display_policy_df[display_columns], use_container_width=True, hide_index=True)
         
     except Exception as e:
         st.error(f"Error processing master file: {str(e)}")
