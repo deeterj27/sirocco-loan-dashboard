@@ -331,9 +331,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Add version indicator
-st.info("Dashboard Version: 2.0 - WITH UNREALIZED GAIN/LOSS")
-
 # File upload section
 col1, col2, col3 = st.columns(3)
 with col1:
@@ -789,9 +786,6 @@ if master_file:
             else:
                 avg_months_since_start = 0
                 avg_years_since_start = 0
-            
-            # Debug output for average loan age
-            st.write(f"DEBUG - Average Loan Age: {avg_years_since_start:.1f} years ({avg_months_since_start:.0f} months)")
             
             # Create the HTML with all values pre-formatted
             active_loans_html = f"""
@@ -1276,7 +1270,7 @@ if master_file:
             st.markdown("""
             <div class='summary-box'>
                 <div class='summary-title'>📊 Portfolio Metrics</div>
-                <div class='summary-metrics'>
+                <div class='summary-metrics' style='grid-template-columns: repeat(5, 1fr);'>
                     <div class='metric-item'>
                         <div class='metric-label'>Total Policies</div>
                         <div class='metric-value'>{}</div>
@@ -1286,36 +1280,36 @@ if master_file:
                         <div class='metric-value'>{}</div>
                     </div>
                     <div class='metric-item'>
+                        <div class='metric-label'>Total Valuation</div>
+                        <div class='metric-value'>{}</div>
+                    </div>
+                    <div class='metric-item'>
                         <div class='metric-label'>Cost Basis</div>
                         <div class='metric-value'>{}</div>
                     </div>
                     <div class='metric-item'>
-                        <div class='metric-label'>Total Valuation</div>
-                        <div class='metric-value'>{}</div>
+                        <div class='metric-label'>Unrealized Gain/(Loss)</div>
+                        <div class='metric-value' style='color: {};'>{}</div>
+                        <div class='metric-subvalue'>{:.1f}%</div>
                     </div>
                 </div>
-                <div style='margin-top: 1.5rem; padding: 1.5rem; background-color: #3d3d3d; border-radius: 6px;'>
-                    <div style='text-align: center; margin-bottom: 1.5rem;'>
-                        <div class='metric-label'>Unrealized Gain/(Loss)</div>
-                        <div style='color: {}; font-size: 2.5rem; font-weight: 700;'>{}</div>
-                        <div style='color: #999999; font-size: 1.2rem; margin-top: 0.25rem;'>{:.1f}% return</div>
-                    </div>
-                    <div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 2rem;'>
+                <div style='margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #3d3d3d;'>
+                    <div class='summary-metrics'>
                         <div class='metric-item'>
                             <div class='metric-label'>Average Age</div>
-                            <div style='color: #FFFFFF; font-size: 1.6rem; font-weight: 700;'>{:.1f} years</div>
+                            <div class='metric-value'>{:.1f} years</div>
                         </div>
                         <div class='metric-item'>
                             <div class='metric-label'>% Male</div>
-                            <div style='color: #FFFFFF; font-size: 1.6rem; font-weight: 700;'>{:.1f}%</div>
+                            <div class='metric-value'>{:.1f}%</div>
                         </div>
                         <div class='metric-item'>
                             <div class='metric-label'>Avg Remaining LE</div>
-                            <div style='color: #FFFFFF; font-size: 1.6rem; font-weight: 700;'>{:.1f} months</div>
+                            <div class='metric-value'>{:.1f} months</div>
                         </div>
                         <div class='metric-item'>
                             <div class='metric-label'>Premiums % of Face</div>
-                            <div style='color: #FFFFFF; font-size: 1.6rem; font-weight: 700;'>{:.2f}%</div>
+                            <div class='metric-value'>{:.2f}%</div>
                         </div>
                     </div>
                 </div>
@@ -1323,8 +1317,8 @@ if master_file:
             """.format(
                 ls_data['summary']['total_policies'],
                 format_currency(ls_data['summary']['total_ndb']),
-                format_currency(ls_data['summary']['total_cost_basis']),
                 format_currency(ls_data['summary']['total_valuation']),
+                format_currency(ls_data['summary']['total_cost_basis']),
                 '#4ECDC4' if unrealized_gain_loss >= 0 else '#FF6B6B',
                 format_currency(unrealized_gain_loss),
                 gain_loss_pct,
@@ -1407,8 +1401,8 @@ if master_file:
                                 <th style='padding: 0.75rem; text-align: center; font-weight: 600;'>Age</th>
                                 <th style='padding: 0.75rem; text-align: center; font-weight: 600;'>Gender</th>
                                 <th style='padding: 0.75rem; text-align: right; font-weight: 600;'>Face Value</th>
-                                <th style='padding: 0.75rem; text-align: right; font-weight: 600;'>Cost Basis</th>
                                 <th style='padding: 0.75rem; text-align: right; font-weight: 600;'>Valuation</th>
+                                <th style='padding: 0.75rem; text-align: right; font-weight: 600;'>Cost Basis</th>
                                 <th style='padding: 0.75rem; text-align: right; font-weight: 600;'>Unrealized Gain/(Loss)</th>
                                 <th style='padding: 0.75rem; text-align: right; font-weight: 600;'>Annual Premium</th>
                                 <th style='padding: 0.75rem; text-align: right; font-weight: 600;'>Premium % Face</th>
@@ -1418,6 +1412,10 @@ if master_file:
                 """
                 
                 for _, row in display_policy_df.iterrows():
+                    # Calculate unrealized gain/loss for color coding
+                    unrealized_value = policies_df[policies_df['Policy_ID'] == row['Policy ID']]['Unrealized_Gain_Loss'].iloc[0]
+                    gain_loss_color = '#4ECDC4' if unrealized_value >= 0 else '#FF6B6B'
+                    
                     table_html += f"""
                         <tr style='border-bottom: 1px solid #3d3d3d;'>
                             <td style='padding: 0.75rem;'>{row['Policy ID']}</td>
@@ -1425,9 +1423,9 @@ if master_file:
                             <td style='padding: 0.75rem; text-align: center;'>{row['Age']:.0f}</td>
                             <td style='padding: 0.75rem; text-align: center;'>{row['Gender']}</td>
                             <td style='padding: 0.75rem; text-align: right;'>{row['Face Value']}</td>
-                            <td style='padding: 0.75rem; text-align: right;'>{row['Cost Basis']}</td>
                             <td style='padding: 0.75rem; text-align: right;'>{row['Valuation']}</td>
-                            <td style='padding: 0.75rem; text-align: right;'>{row['Unrealized Gain/(Loss)']}</td>
+                            <td style='padding: 0.75rem; text-align: right;'>{row['Cost Basis']}</td>
+                            <td style='padding: 0.75rem; text-align: right; color: {gain_loss_color}; font-weight: 600;'>{row['Unrealized Gain/(Loss)']}</td>
                             <td style='padding: 0.75rem; text-align: right;'>{row['Annual Premium']}</td>
                             <td style='padding: 0.75rem; text-align: right;'>{row['Premium % Face']}</td>
                         </tr>
