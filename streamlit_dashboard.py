@@ -770,11 +770,13 @@ if master_file:
             # Average age calculation - calculate months since loan start
             valid_start_dates = active_loans[active_loans['Loan Start Date'] <= today]['Loan Start Date']
             if len(valid_start_dates) > 0:
-                # Calculate months since start for each loan
+                # Calculate months since start for each loan using proper date arithmetic
                 months_since_start_list = []
                 for start_date in valid_start_dates:
                     if pd.notna(start_date):
-                        months_diff = (today.year - start_date.year) * 12 + (today.month - start_date.month)
+                        # Calculate the difference in days and convert to months
+                        days_diff = (today - start_date).days
+                        months_diff = days_diff / 30.44  # Average days per month
                         months_since_start_list.append(months_diff)
                 
                 if months_since_start_list:
