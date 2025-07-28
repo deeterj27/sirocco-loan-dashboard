@@ -767,11 +767,22 @@ if master_file:
                 avg_months_to_maturity = 0
                 avg_years_to_maturity = 0
             
-            # Average age calculation
+            # Average age calculation - calculate months since loan start
             valid_start_dates = active_loans[active_loans['Loan Start Date'] <= today]['Loan Start Date']
             if len(valid_start_dates) > 0:
-                avg_months_since_start = (today - valid_start_dates).dt.days.mean() / 30.44
-                avg_years_since_start = avg_months_since_start / 12
+                # Calculate months since start for each loan
+                months_since_start_list = []
+                for start_date in valid_start_dates:
+                    if pd.notna(start_date):
+                        months_diff = (today.year - start_date.year) * 12 + (today.month - start_date.month)
+                        months_since_start_list.append(months_diff)
+                
+                if months_since_start_list:
+                    avg_months_since_start = sum(months_since_start_list) / len(months_since_start_list)
+                    avg_years_since_start = avg_months_since_start / 12
+                else:
+                    avg_months_since_start = 0
+                    avg_years_since_start = 0
             else:
                 avg_months_since_start = 0
                 avg_years_since_start = 0
