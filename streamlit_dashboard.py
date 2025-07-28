@@ -1259,7 +1259,7 @@ if master_file:
                 st.error(f"Error creating cashflow vs premium analysis: {str(e)}")
                 st.info("Please check that both loan cashflow data and life settlement premium data are properly loaded.")
 
-        # Display LS data if available (but after all loan data)
+# Display LS data if available (but after all loan data)
         if ls_data:
             st.markdown("<h2 style='color: #FDB813; margin-top: 3rem; font-size: 2rem;'>🏥 Life Settlement Portfolio</h2>", unsafe_allow_html=True)
             
@@ -1330,24 +1330,58 @@ if master_file:
             
             # Monthly Premium Projections
             if ls_data['monthly_premiums']:
-                st.markdown("""
-                <div class='summary-box'>
-                    <div class='summary-title'>💵 Monthly Premium Projections</div>
-                    <div style='display: grid; grid-template-columns: repeat(6, 1fr); gap: 2rem; padding: 1rem 0;'>
-                """, unsafe_allow_html=True)
+                st.markdown("<h3 style='color: #FDB813; margin-top: 2rem; font-size: 1.4rem;'>💵 Monthly Premium Projections</h3>", unsafe_allow_html=True)
+                
+                # Create the premium grid
+                premium_html = """
+                <div style='background-color: #2d2d2d; padding: 2rem; border-radius: 8px; margin-bottom: 2rem;'>
+                    <div style='display: grid; grid-template-columns: repeat(6, 1fr); gap: 1.5rem;'>
+                """
                 
                 premium_items = list(ls_data['monthly_premiums'].items())
                 
                 # Display all months in a grid
-                for month, amount in premium_items:
-                    st.markdown(f"""
-                        <div class='metric-item'>
-                            <div class='metric-label'>{month}</div>
-                            <div class='metric-value'>{format_currency(amount)}</div>
+                for month, amount in premium_items[:6]:  # First row
+                    premium_html += f"""
+                        <div style='text-align: center; background-color: #3d3d3d; padding: 1rem; border-radius: 6px;'>
+                            <div style='color: #FDB813; font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem;'>{month}</div>
+                            <div style='color: #FFFFFF; font-size: 1.3rem; font-weight: 700;'>{format_currency(amount)}</div>
                         </div>
-                    """, unsafe_allow_html=True)
+                    """
                 
-                st.markdown("</div></div>", unsafe_allow_html=True)
+                premium_html += """
+                    </div>
+                """
+                
+                # If there are more than 6 months, create a second row
+                if len(premium_items) > 6:
+                    premium_html += """
+                        <div style='display: grid; grid-template-columns: repeat(6, 1fr); gap: 1.5rem; margin-top: 1.5rem;'>
+                    """
+                    
+                    for month, amount in premium_items[6:12]:  # Second row
+                        premium_html += f"""
+                            <div style='text-align: center; background-color: #3d3d3d; padding: 1rem; border-radius: 6px;'>
+                                <div style='color: #FDB813; font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem;'>{month}</div>
+                                <div style='color: #FFFFFF; font-size: 1.3rem; font-weight: 700;'>{format_currency(amount)}</div>
+                            </div>
+                        """
+                    
+                    # Fill empty spaces if less than 12 months
+                    for _ in range(12 - len(premium_items)):
+                        premium_html += """
+                            <div></div>
+                        """
+                    
+                    premium_html += """
+                        </div>
+                    """
+                
+                premium_html += """
+                </div>
+                """
+                
+                st.markdown(premium_html, unsafe_allow_html=True)
             
             # Policy Details Table
             st.markdown("<h3 style='color: #FFFFFF; margin-top: 2rem; font-size: 1.4rem;'>📋 Policy Details</h3>", unsafe_allow_html=True)
