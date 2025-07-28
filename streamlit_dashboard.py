@@ -1332,56 +1332,31 @@ if master_file:
             if ls_data['monthly_premiums']:
                 st.markdown("<h3 style='color: #FDB813; margin-top: 2rem; font-size: 1.4rem;'>💵 Monthly Premium Projections</h3>", unsafe_allow_html=True)
                 
-                # Create the premium grid
-                premium_html = """
-                <div style='background-color: #2d2d2d; padding: 2rem; border-radius: 8px; margin-bottom: 2rem;'>
-                    <div style='display: grid; grid-template-columns: repeat(6, 1fr); gap: 1.5rem;'>
-                """
-                
+                # Use Streamlit columns for better compatibility
                 premium_items = list(ls_data['monthly_premiums'].items())
                 
-                # Display all months in a grid
-                for month, amount in premium_items[:6]:  # First row
-                    premium_html += f"""
-                        <div style='text-align: center; background-color: #3d3d3d; padding: 1rem; border-radius: 6px;'>
+                # Create first row (6 months)
+                cols1 = st.columns(6)
+                for i, (month, amount) in enumerate(premium_items[:6]):
+                    with cols1[i]:
+                        st.markdown(f"""
+                        <div style='text-align: center; background-color: #3d3d3d; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;'>
                             <div style='color: #FDB813; font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem;'>{month}</div>
                             <div style='color: #FFFFFF; font-size: 1.3rem; font-weight: 700;'>{format_currency(amount)}</div>
                         </div>
-                    """
+                        """, unsafe_allow_html=True)
                 
-                premium_html += """
-                    </div>
-                """
-                
-                # If there are more than 6 months, create a second row
+                # Create second row if there are more than 6 months
                 if len(premium_items) > 6:
-                    premium_html += """
-                        <div style='display: grid; grid-template-columns: repeat(6, 1fr); gap: 1.5rem; margin-top: 1.5rem;'>
-                    """
-                    
-                    for month, amount in premium_items[6:12]:  # Second row
-                        premium_html += f"""
-                            <div style='text-align: center; background-color: #3d3d3d; padding: 1rem; border-radius: 6px;'>
+                    cols2 = st.columns(6)
+                    for i, (month, amount) in enumerate(premium_items[6:12]):
+                        with cols2[i]:
+                            st.markdown(f"""
+                            <div style='text-align: center; background-color: #3d3d3d; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;'>
                                 <div style='color: #FDB813; font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem;'>{month}</div>
                                 <div style='color: #FFFFFF; font-size: 1.3rem; font-weight: 700;'>{format_currency(amount)}</div>
                             </div>
-                        """
-                    
-                    # Fill empty spaces if less than 12 months
-                    for _ in range(12 - len(premium_items)):
-                        premium_html += """
-                            <div></div>
-                        """
-                    
-                    premium_html += """
-                        </div>
-                    """
-                
-                premium_html += """
-                </div>
-                """
-                
-                st.markdown(premium_html, unsafe_allow_html=True)
+                            """, unsafe_allow_html=True)
             
             # Policy Details Table
             st.markdown("<h3 style='color: #FFFFFF; margin-top: 2rem; font-size: 1.4rem;'>📋 Policy Details</h3>", unsafe_allow_html=True)
