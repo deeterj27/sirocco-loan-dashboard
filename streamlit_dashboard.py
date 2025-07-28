@@ -1359,85 +1359,89 @@ if master_file:
                 policies_df['Unrealized_Gain_Loss'] = policies_df['Valuation'] - policies_df['Cost_Basis']
                 policies_df['Gain_Loss_Pct'] = (policies_df['Unrealized_Gain_Loss'] / policies_df['Cost_Basis'] * 100).fillna(0)
                 
-                # Format for display
-                display_policy_df = policies_df.copy()
-                display_policy_df['NDB'] = display_policy_df['NDB'].apply(format_currency)
-                display_policy_df['Cost_Basis'] = display_policy_df['Cost_Basis'].apply(format_currency)
-                display_policy_df['Valuation'] = display_policy_df['Valuation'].apply(format_currency)
+                # Create display dataframe with formatted values
+                display_df = pd.DataFrame()
+                display_df['Policy ID'] = policies_df['Policy_ID']
+                display_df['Name'] = policies_df['Name']
+                display_df['Age'] = policies_df['Age'].round(0).astype(int)
+                display_df['Gender'] = policies_df['Gender']
+                display_df['Face Value'] = policies_df['NDB'].apply(format_currency)
+                display_df['Valuation'] = policies_df['Valuation'].apply(format_currency)
+                display_df['Cost Basis'] = policies_df['Cost_Basis'].apply(format_currency)
                 
-                # Format unrealized gain/loss with color coding
-                def format_gain_loss(value):
+                # Format unrealized gain/loss with color
+                def format_unrealized(row):
+                    value = row['Unrealized_Gain_Loss']
+                    formatted = format_currency(value)
                     if value >= 0:
-                        return f"<span style='color: #4ECDC4;'>{format_currency(value)}</span>"
+                        return f'<span style="color: #4ECDC4; font-weight: 600;">{formatted}</span>'
                     else:
-                        return f"<span style='color: #FF6B6B;'>{format_currency(value)}</span>"
+                        return f'<span style="color: #FF6B6B; font-weight: 600;">{formatted}</span>'
                 
-                display_policy_df['Unrealized_Gain_Loss_Display'] = display_policy_df['Unrealized_Gain_Loss'].apply(format_gain_loss)
-                display_policy_df['Annual_Premium'] = display_policy_df['Annual_Premium'].apply(format_currency)
-                display_policy_df['Premium_Pct_Face'] = display_policy_df['Premium_Pct_Face'].apply(lambda x: f"{x:.2f}%")
+                display_df['Unrealized Gain/(Loss)'] = policies_df.apply(format_unrealized, axis=1)
+                display_df['Annual Premium'] = policies_df['Annual_Premium'].apply(format_currency)
+                display_df['Premium % Face'] = policies_df['Premium_Pct_Face'].apply(lambda x: f"{x:.2f}%")
                 
-                # Rename columns
-                display_policy_df = display_policy_df.rename(columns={
-                    'Policy_ID': 'Policy ID',
-                    'Name': 'Name',
-                    'Age': 'Age',
-                    'Gender': 'Gender',
-                    'NDB': 'Face Value',
-                    'Cost_Basis': 'Cost Basis',
-                    'Valuation': 'Valuation',
-                    'Unrealized_Gain_Loss_Display': 'Unrealized Gain/(Loss)',
-                    'Annual_Premium': 'Annual Premium',
-                    'Premium_Pct_Face': 'Premium % Face'
-                })
+                # Convert to HTML with custom styling
+                html_table = display_df.to_html(
+                    escape=False,
+                    index=False,
+                    classes='policy-table'
+                )
                 
-                # Create HTML table for better formatting
-                table_html = """
-                <div style='background-color: #2d2d2d; padding: 1rem; border-radius: 8px; overflow-x: auto;'>
-                    <table style='width: 100%; color: white; border-collapse: collapse;'>
-                        <thead>
-                            <tr style='background-color: #FDB813; color: #1a1a1a;'>
-                                <th style='padding: 0.75rem; text-align: left; font-weight: 600;'>Policy ID</th>
-                                <th style='padding: 0.75rem; text-align: left; font-weight: 600;'>Name</th>
-                                <th style='padding: 0.75rem; text-align: center; font-weight: 600;'>Age</th>
-                                <th style='padding: 0.75rem; text-align: center; font-weight: 600;'>Gender</th>
-                                <th style='padding: 0.75rem; text-align: right; font-weight: 600;'>Face Value</th>
-                                <th style='padding: 0.75rem; text-align: right; font-weight: 600;'>Valuation</th>
-                                <th style='padding: 0.75rem; text-align: right; font-weight: 600;'>Cost Basis</th>
-                                <th style='padding: 0.75rem; text-align: right; font-weight: 600;'>Unrealized Gain/(Loss)</th>
-                                <th style='padding: 0.75rem; text-align: right; font-weight: 600;'>Annual Premium</th>
-                                <th style='padding: 0.75rem; text-align: right; font-weight: 600;'>Premium % Face</th>
-                            </tr>
-                        </thead>
-                        <tbody>
+                # Add custom CSS for the table
+                table_style = """
+                <style>
+                .policy-table {
+                    width: 100%;
+                    color: white;
+                    border-collapse: collapse;
+                    background-color: #2d2d2d;
+                }
+                .policy-table th {
+                    background-color: #FDB813;
+                    color: #1a1a1a;
+                    padding: 0.75rem;
+                    text-align: left;
+                    font-weight: 600;
+                }
+                .policy-table td {
+                    padding: 0.75rem;
+                    border-bottom: 1px solid #3d3d3d;
+                }
+                .policy-table tr:hover {
+                    background-color: #3d3d3d;
+                }
+                .policy-table td:nth-child(3),
+                .policy-table td:nth-child(4),
+                .policy-table th:nth-child(3),
+                .policy-table th:nth-child(4) {
+                    text-align: center;
+                }
+                .policy-table td:nth-child(5),
+                .policy-table td:nth-child(6),
+                .policy-table td:nth-child(7),
+                .policy-table td:nth-child(8),
+                .policy-table td:nth-child(9),
+                .policy-table td:nth-child(10),
+                .policy-table th:nth-child(5),
+                .policy-table th:nth-child(6),
+                .policy-table th:nth-child(7),
+                .policy-table th:nth-child(8),
+                .policy-table th:nth-child(9),
+                .policy-table th:nth-child(10) {
+                    text-align: right;
+                }
+                </style>
                 """
                 
-                for _, row in display_policy_df.iterrows():
-                    # Calculate unrealized gain/loss for color coding
-                    unrealized_value = policies_df[policies_df['Policy_ID'] == row['Policy ID']]['Unrealized_Gain_Loss'].iloc[0]
-                    gain_loss_color = '#4ECDC4' if unrealized_value >= 0 else '#FF6B6B'
-                    
-                    table_html += f"""
-                        <tr style='border-bottom: 1px solid #3d3d3d;'>
-                            <td style='padding: 0.75rem;'>{row['Policy ID']}</td>
-                            <td style='padding: 0.75rem;'>{row['Name']}</td>
-                            <td style='padding: 0.75rem; text-align: center;'>{row['Age']:.0f}</td>
-                            <td style='padding: 0.75rem; text-align: center;'>{row['Gender']}</td>
-                            <td style='padding: 0.75rem; text-align: right;'>{row['Face Value']}</td>
-                            <td style='padding: 0.75rem; text-align: right;'>{row['Valuation']}</td>
-                            <td style='padding: 0.75rem; text-align: right;'>{row['Cost Basis']}</td>
-                            <td style='padding: 0.75rem; text-align: right; color: {gain_loss_color}; font-weight: 600;'>{row['Unrealized Gain/(Loss)']}</td>
-                            <td style='padding: 0.75rem; text-align: right;'>{row['Annual Premium']}</td>
-                            <td style='padding: 0.75rem; text-align: right;'>{row['Premium % Face']}</td>
-                        </tr>
-                    """
-                
-                table_html += """
-                        </tbody>
-                    </table>
-                </div>
-                """
-                
-                st.markdown(table_html, unsafe_allow_html=True)
+                # Display the styled table
+                st.markdown(
+                    f'<div style="background-color: #2d2d2d; padding: 1rem; border-radius: 8px; overflow-x: auto;">'
+                    f'{table_style}{html_table}'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
         
     except Exception as e:
         st.error(f"Error processing master file: {str(e)}")
