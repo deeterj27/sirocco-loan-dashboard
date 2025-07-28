@@ -1267,6 +1267,9 @@ if master_file:
             st.markdown("<h2 style='color: #FDB813; margin-top: 3rem; font-size: 2rem;'>🏥 Life Settlement Portfolio</h2>", unsafe_allow_html=True)
             
             # Key Metrics Box with Unrealized Gain/Loss
+            unrealized_gain_loss = ls_data['summary']['total_valuation'] - ls_data['summary']['total_cost_basis']
+            gain_loss_pct = (unrealized_gain_loss / ls_data['summary']['total_cost_basis'] * 100) if ls_data['summary']['total_cost_basis'] > 0 else 0
+            
             st.markdown("""
             <div class='summary-box'>
                 <div class='summary-title'>📊 Portfolio Metrics</div>
@@ -1289,31 +1292,29 @@ if master_file:
                     </div>
                 </div>
                 <div style='margin-top: 1.5rem; padding: 1.5rem; background-color: #3d3d3d; border-radius: 6px;'>
-                    <div style='display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; align-items: center;'>
-                        <div style='text-align: center;'>
-                            <div class='metric-label'>Unrealized Gain/(Loss)</div>
-                            <div style='color: {}; font-size: 2rem; font-weight: 700;'>{}</div>
-                            <div style='color: #999999; font-size: 1rem; margin-top: 0.25rem;'>{:.1f}% return</div>
+                    <div style='text-align: center; margin-bottom: 1.5rem;'>
+                        <div class='metric-label'>Unrealized Gain/(Loss)</div>
+                        <div style='color: {}; font-size: 2.5rem; font-weight: 700;'>{}</div>
+                        <div style='color: #999999; font-size: 1.2rem; margin-top: 0.25rem;'>{:.1f}% return</div>
+                    </div>
+                    <div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 2rem;'>
+                        <div class='metric-item'>
+                            <div class='metric-label'>Average Age</div>
+                            <div style='color: #FFFFFF; font-size: 1.6rem; font-weight: 700;'>{:.1f} years</div>
                         </div>
-                        <div style='display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem;'>
-                            <div class='metric-item'>
-                                <div class='metric-label'>Average Age</div>
-                                <div style='color: #FFFFFF; font-size: 1.6rem; font-weight: 700;'>{:.1f} years</div>
-                            </div>
-                            <div class='metric-item'>
-                                <div class='metric-label'>% Male</div>
-                                <div style='color: #FFFFFF; font-size: 1.6rem; font-weight: 700;'>{:.1f}%</div>
-                            </div>
-                            <div class='metric-item'>
-                                <div class='metric-label'>Avg Remaining LE</div>
-                                <div style='color: #FFFFFF; font-size: 1.6rem; font-weight: 700;'>{:.1f} months</div>
-                            </div>
+                        <div class='metric-item'>
+                            <div class='metric-label'>% Male</div>
+                            <div style='color: #FFFFFF; font-size: 1.6rem; font-weight: 700;'>{:.1f}%</div>
+                        </div>
+                        <div class='metric-item'>
+                            <div class='metric-label'>Avg Remaining LE</div>
+                            <div style='color: #FFFFFF; font-size: 1.6rem; font-weight: 700;'>{:.1f} months</div>
+                        </div>
+                        <div class='metric-item'>
+                            <div class='metric-label'>Premiums % of Face</div>
+                            <div style='color: #FFFFFF; font-size: 1.6rem; font-weight: 700;'>{:.2f}%</div>
                         </div>
                     </div>
-                </div>
-                <div style='margin-top: 1.5rem; text-align: center;'>
-                    <div class='metric-label'>Premiums % of Face</div>
-                    <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{:.2f}%</div>
                 </div>
             </div>
             """.format(
@@ -1321,9 +1322,9 @@ if master_file:
                 format_currency(ls_data['summary']['total_ndb']),
                 format_currency(ls_data['summary']['total_cost_basis']),
                 format_currency(ls_data['summary']['total_valuation']),
-                '#4ECDC4' if ls_data['summary']['total_valuation'] >= ls_data['summary']['total_cost_basis'] else '#FF6B6B',
-                format_currency(ls_data['summary']['total_valuation'] - ls_data['summary']['total_cost_basis']),
-                ((ls_data['summary']['total_valuation'] - ls_data['summary']['total_cost_basis']) / ls_data['summary']['total_cost_basis'] * 100) if ls_data['summary']['total_cost_basis'] > 0 else 0,
+                '#4ECDC4' if unrealized_gain_loss >= 0 else '#FF6B6B',
+                format_currency(unrealized_gain_loss),
+                gain_loss_pct,
                 ls_data['summary']['avg_age'],
                 ls_data['summary']['male_percentage'],
                 ls_data['summary']['avg_remaining_le'],
