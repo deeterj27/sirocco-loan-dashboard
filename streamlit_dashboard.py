@@ -814,24 +814,22 @@ if master_file:
                         <div class='metric-subvalue'>({avg_months_to_maturity:.0f} months)</div>
                     </div>
                 </div>
-                <div style='margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #3d3d3d; min-height: 150px;'>
-                    <table style='width: 100%;'>
-                        <tr>
-                            <td style='text-align: center; width: 33.33%; padding: 0.5rem;'>
-                                <div class='metric-label' style='margin-bottom: 0.5rem;'>Amortizing Loans</div>
-                                <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{amortizing_loans}</div>
-                            </td>
-                            <td style='text-align: center; width: 33.33%; padding: 0.5rem;'>
-                                <div class='metric-label' style='margin-bottom: 0.5rem;'>Interest Only</div>
-                                <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{interest_only_loans}</div>
-                            </td>
-                            <td style='text-align: center; width: 33.33%; padding: 0.5rem;'>
-                                <div class='metric-label' style='margin-bottom: 0.5rem;'>Average Loan Age</div>
-                                <div style='color: #FFFFFF; font-size: 1.8rem; font-weight: 700;'>{avg_years_since_start:.1f} yrs</div>
-                                <div style='color: #999999; font-size: 1rem; margin-top: 0.25rem;'>({avg_months_since_start:.0f} months)</div>
-                            </td>
-                        </tr>
-                    </table>
+                <div style='margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #3d3d3d;'>
+                    <div class='summary-metrics' style='grid-template-columns: repeat(3, 1fr);'>
+                        <div class='metric-item'>
+                            <div class='metric-label'>Amortizing Loans</div>
+                            <div class='metric-value' style='font-size: 1.8rem;'>{amortizing_loans}</div>
+                        </div>
+                        <div class='metric-item'>
+                            <div class='metric-label'>Interest Only</div>
+                            <div class='metric-value' style='font-size: 1.8rem;'>{interest_only_loans}</div>
+                        </div>
+                        <div class='metric-item'>
+                            <div class='metric-label'>Average Loan Age</div>
+                            <div class='metric-value' style='font-size: 1.8rem;'>{avg_years_since_start:.1f} yrs</div>
+                            <div class='metric-subvalue'>({avg_months_since_start:.0f} months)</div>
+                        </div>
+                    </div>
                 </div>
             </div>
             """
