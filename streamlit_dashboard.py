@@ -201,7 +201,13 @@ def process_life_settlement_data(ls_file):
     try:
         ls_wb = load_workbook(ls_file, data_only=True)
         
+        # Debug: Show available sheet names
+        available_sheets = ls_wb.sheetnames
+        st.info(f'Available sheets in LS file: {available_sheets}')
+        
         if 'Valuation Summary' not in ls_wb.sheetnames or 'Premium Stream' not in ls_wb.sheetnames:
+            st.error('Required sheets not found. Expected: "Valuation Summary" and "Premium Stream"')
+            st.info(f'Available sheets: {available_sheets}')
             return None
         
         val_sheet = ls_wb['Valuation Summary']
@@ -334,7 +340,9 @@ def process_life_settlement_data(ls_file):
             'policy_premiums': policy_premiums
         }
         
-    except:
+    except Exception as e:
+        st.error(f'Error processing Life Settlement file: {str(e)}')
+        st.info('Please check that the Excel file has the expected structure with "Valuation Summary" and "Premium Stream" sheets.')
         return None
 
 # Main app
