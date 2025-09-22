@@ -205,6 +205,11 @@ def process_life_settlement_data(ls_file):
         available_sheets = ls_wb.sheetnames
         st.info(f'Available sheets in LS file: {available_sheets}')
         
+        # Validate that we have sheets
+        if not available_sheets:
+            st.error('No sheets found in the Excel file')
+            return None
+        
         # Check for both possible sheet names for the valuation data
         valuation_sheet_name = None
         if 'Valuation Summary' in ls_wb.sheetnames:
@@ -226,9 +231,13 @@ def process_life_settlement_data(ls_file):
         policies = []
         
         for row in range(3, 200):
-            policy_id_cell = val_sheet[f'B{row}']
-            if not policy_id_cell.value:
-                break
+            try:
+                policy_id_cell = val_sheet[f'B{row}']
+                if not policy_id_cell.value:
+                    break
+            except Exception as e:
+                st.warning(f'Error reading row {row}: {str(e)}')
+                continue
                 
             try:
                 # Get NDB value first
@@ -352,7 +361,19 @@ def process_life_settlement_data(ls_file):
         
     except Exception as e:
         st.error(f'Error processing Life Settlement file: {str(e)}')
+        st.error(f'Error type: {type(e).__name__}')
         st.info('Please check that the Excel file has the expected structure with "Valuation Summary" or "PortfolioResult" and "Premium Stream" sheets.')
+        
+        # Additional debugging information
+        with st.expander("🔍 Debug Information"):
+            st.code(f"Error details: {str(e)}")
+            st.code(f"Error type: {type(e).__name__}")
+            try:
+                if 'ls_wb' in locals():
+                    st.write("Available sheets:", ls_wb.sheetnames)
+            except:
+                st.write("Could not retrieve sheet names")
+        
         return None
 
 # Main app
