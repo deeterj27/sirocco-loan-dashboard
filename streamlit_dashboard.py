@@ -217,16 +217,23 @@ def process_life_settlement_data(ls_file):
         elif 'PortfolioResult' in ls_wb.sheetnames:
             valuation_sheet_name = 'PortfolioResult'
         
-        if valuation_sheet_name is None or 'Premium Stream' not in ls_wb.sheetnames:
-            st.error('Required sheets not found. Expected: "Valuation Summary" or "PortfolioResult" and "Premium Stream"')
+        if valuation_sheet_name is None:
+            st.error('Required valuation sheet not found. Expected: "Valuation Summary" or "PortfolioResult"')
             st.info(f'Available sheets: {available_sheets}')
             return None
         
         val_sheet = ls_wb[valuation_sheet_name]
-        premium_sheet = ls_wb['Premium Stream']
         
-        # Show which sheet name was detected
-        st.success(f'✅ Using "{valuation_sheet_name}" sheet for valuation data')
+        # Check for Premium Stream sheet (optional)
+        has_premium_stream = 'Premium Stream' in ls_wb.sheetnames
+        if has_premium_stream:
+            premium_sheet = ls_wb['Premium Stream']
+            st.success(f'✅ Using "{valuation_sheet_name}" sheet for valuation data')
+            st.info(f'✅ Premium Stream sheet found - premium projections will be included')
+        else:
+            premium_sheet = None
+            st.success(f'✅ Using "{valuation_sheet_name}" sheet for valuation data')
+            st.warning(f'⚠️ Premium Stream sheet not found - only valuation data will be processed')
         
         policies = []
         
@@ -293,40 +300,46 @@ def process_life_settlement_data(ls_file):
         valid_les = [p['Remaining_LE'] for p in policies if p['Remaining_LE'] > 0]
         avg_remaining_le = sum(valid_les) / len(valid_les) if valid_les else 0
         
-        # Process monthly premiums
+        # Process monthly premiums (only if Premium Stream sheet exists)
         monthly_premiums = {}
         policy_premiums = {}
-        month_columns = ['M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X']
         
-        month_headers = []
-        for col in month_columns:
-            header = premium_sheet[f'{col}2'].value
-            if header:
-                month_headers.append((col, str(header)))
-        
-        for col_letter, month_name in month_headers:
-            month_total = 0
-            for prem_row in range(3, len(policies) + 3):
-                try:
-                    lyric_id_cell = premium_sheet[f'B{prem_row}']
-                    if lyric_id_cell.value:
-                        lyric_id = str(lyric_id_cell.value)
-                        premium_cell = premium_sheet[f'{col_letter}{prem_row}']
-                        premium_val = safe_float(premium_cell.value) if premium_cell.value else 0
-                        month_total += premium_val
-                        
-                        if lyric_id not in policy_premiums:
-                            policy_premiums[lyric_id] = {}
-                        policy_premiums[lyric_id][month_name] = premium_val
-                except:
-                    continue
+        if has_premium_stream and premium_sheet:
+            month_columns = ['M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X']
             
-            monthly_premiums[month_name] = month_total
+            month_headers = []
+            for col in month_columns:
+                header = premium_sheet[f'{col}2'].value
+                if header:
+                    month_headers.append((col, str(header)))
+            
+            for col_letter, month_name in month_headers:
+                month_total = 0
+                for prem_row in range(3, len(policies) + 3):
+                    try:
+                        lyric_id_cell = premium_sheet[f'B{prem_row}']
+                        if lyric_id_cell.value:
+                            lyric_id = str(lyric_id_cell.value)
+                            premium_cell = premium_sheet[f'{col_letter}{prem_row}']
+                            premium_val = safe_float(premium_cell.value) if premium_cell.value else 0
+                            month_total += premium_val
+                            
+                            if lyric_id not in policy_premiums:
+                                policy_premiums[lyric_id] = {}
+                            policy_premiums[lyric_id][month_name] = premium_val
+                    except:
+                        continue
+                
+                monthly_premiums[month_name] = month_total
+        else:
+            # Set default values when Premium Stream is not available
+            monthly_premiums = {}
+            policy_premiums = {}
         
         # Calculate policy-level metrics
         for policy in policies:
             policy_id = policy['Policy_ID']
-            if policy_id in policy_premiums:
+            if has_premium_stream and policy_id in policy_premiums:
                 annual_premium = sum(policy_premiums[policy_id].values())
                 policy['Annual_Premium'] = annual_premium
                 if policy['NDB'] > 0:
@@ -362,7 +375,7 @@ def process_life_settlement_data(ls_file):
     except Exception as e:
         st.error(f'Error processing Life Settlement file: {str(e)}')
         st.error(f'Error type: {type(e).__name__}')
-        st.info('Please check that the Excel file has the expected structure with "Valuation Summary" or "PortfolioResult" and "Premium Stream" sheets.')
+        st.info('Please check that the Excel file has the expected structure with "Valuation Summary" or "PortfolioResult" sheet. "Premium Stream" sheet is optional.')
         
         # Additional debugging information
         with st.expander("🔍 Debug Information"):
@@ -1425,7 +1438,7 @@ if master_file:
                 ls_data['summary']['premiums_as_pct_face']
             ), unsafe_allow_html=True)
             
-            # Monthly Premium Projections
+            # Monthly Premium Projections (only show if premium data is available)
             if ls_data['monthly_premiums']:
                 st.markdown("<h3 style='color: #FDB813; margin-top: 2rem; font-size: 1.4rem;'>💵 Monthly Premium Projections</h3>", unsafe_allow_html=True)
                 
@@ -1454,6 +1467,9 @@ if master_file:
                                 <div style='color: #FFFFFF; font-size: 1.3rem; font-weight: 700;'>{format_currency(amount)}</div>
                             </div>
                             """, unsafe_allow_html=True)
+            else:
+                st.markdown("<h3 style='color: #FDB813; margin-top: 2rem; font-size: 1.4rem;'>💵 Monthly Premium Projections</h3>", unsafe_allow_html=True)
+                st.info("⚠️ Premium Stream sheet not found - monthly premium projections are not available for this file.")
             
             # Policy Details Table
             st.markdown("<h3 style='color: #FFFFFF; margin-top: 2rem; font-size: 1.4rem;'>📋 Policy Details</h3>", unsafe_allow_html=True)
