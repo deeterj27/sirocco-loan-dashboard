@@ -205,13 +205,23 @@ def process_life_settlement_data(ls_file):
         available_sheets = ls_wb.sheetnames
         st.info(f'Available sheets in LS file: {available_sheets}')
         
-        if 'Valuation Summary' not in ls_wb.sheetnames or 'Premium Stream' not in ls_wb.sheetnames:
-            st.error('Required sheets not found. Expected: "Valuation Summary" and "Premium Stream"')
+        # Check for both possible sheet names for the valuation data
+        valuation_sheet_name = None
+        if 'Valuation Summary' in ls_wb.sheetnames:
+            valuation_sheet_name = 'Valuation Summary'
+        elif 'PortfolioResult' in ls_wb.sheetnames:
+            valuation_sheet_name = 'PortfolioResult'
+        
+        if valuation_sheet_name is None or 'Premium Stream' not in ls_wb.sheetnames:
+            st.error('Required sheets not found. Expected: "Valuation Summary" or "PortfolioResult" and "Premium Stream"')
             st.info(f'Available sheets: {available_sheets}')
             return None
         
-        val_sheet = ls_wb['Valuation Summary']
+        val_sheet = ls_wb[valuation_sheet_name]
         premium_sheet = ls_wb['Premium Stream']
+        
+        # Show which sheet name was detected
+        st.success(f'✅ Using "{valuation_sheet_name}" sheet for valuation data')
         
         policies = []
         
@@ -342,7 +352,7 @@ def process_life_settlement_data(ls_file):
         
     except Exception as e:
         st.error(f'Error processing Life Settlement file: {str(e)}')
-        st.info('Please check that the Excel file has the expected structure with "Valuation Summary" and "Premium Stream" sheets.')
+        st.info('Please check that the Excel file has the expected structure with "Valuation Summary" or "PortfolioResult" and "Premium Stream" sheets.')
         return None
 
 # Main app
