@@ -1105,11 +1105,21 @@ if master_file:
             
             st.dataframe(not_started_display, use_container_width=True, hide_index=True)
         
-        # Cash flow projection - Updated to 12 months
-        st.markdown("<h2 style='color: #FDB813; margin-top: 2rem;'>💸 Cash Flow Projection (Next 12 Months)</h2>", unsafe_allow_html=True)
+        # Cash flow analysis with historical and forward-looking views
+        st.markdown("<h2 style='color: #FDB813; margin-top: 2rem;'>💸 Cash Flow Analysis</h2>", unsafe_allow_html=True)
+        
+        # Add view selector
+        view_option = st.radio(
+            "Select View:",
+            ["Forward-Looking (Next 12 Months)", "Historical (Past 3 Months)", "Both Views"],
+            horizontal=True,
+            key="cashflow_view"
+        )
         
         today = datetime.now()
-        cashflow_data = []
+        
+        # Collect all cashflow data (both historical and forward)
+        all_cashflow_data = []
         
         for borrower, amort_df in loan_details.items():
             if borrower in not_started_loans['Borrower'].values:
@@ -1117,17 +1127,47 @@ if master_file:
                 
             if 'Month' in amort_df.columns and 'Loan Repayment' in amort_df.columns:
                 amort_df['Month'] = pd.to_datetime(amort_df['Month'])
+                
+                # Get historical data (past 3 months)
+                historical = amort_df[(amort_df['Month'] <= today) & 
+                                     (amort_df['Month'] >= today - relativedelta(months=3))]
+                
+                # Get forward-looking data (next 12 months)
                 upcoming = amort_df[(amort_df['Month'] > today) & 
                                   (amort_df['Month'] <= today + relativedelta(months=12))]
                 
-                for _, row in upcoming.iterrows():
-                    cashflow_data.append({
+                # Add historical data
+                for _, row in historical.iterrows():
+                    all_cashflow_data.append({
                         'Borrower': borrower,
                         'Payment Date': row['Month'],
                         'Payment Amount': row['Loan Repayment'],
                         'Interest': row.get('Interest Charged', 0),
-                        'Principal': row.get('Capital Repaid', 0)
+                        'Principal': row.get('Capital Repaid', 0),
+                        'Type': 'Historical'
                     })
+                
+                # Add forward-looking data
+                for _, row in upcoming.iterrows():
+                    all_cashflow_data.append({
+                        'Borrower': borrower,
+                        'Payment Date': row['Month'],
+                        'Payment Amount': row['Loan Repayment'],
+                        'Interest': row.get('Interest Charged', 0),
+                        'Principal': row.get('Capital Repaid', 0),
+                        'Type': 'Forward-Looking'
+                    })
+        
+        # Filter data based on selected view
+        if all_cashflow_data:
+            all_cashflow_df = pd.DataFrame(all_cashflow_data)
+            
+            if view_option == "Forward-Looking (Next 12 Months)":
+                cashflow_data = [d for d in all_cashflow_data if d['Type'] == 'Forward-Looking']
+            elif view_option == "Historical (Past 3 Months)":
+                cashflow_data = [d for d in all_cashflow_data if d['Type'] == 'Historical']
+            else:  # Both Views
+                cashflow_data = all_cashflow_data
         
         if cashflow_data:
             cashflow_df = pd.DataFrame(cashflow_data)
@@ -1136,8 +1176,13 @@ if master_file:
             # Create a pivot table for month-over-month view by borrower
             cashflow_df['Month'] = cashflow_df['Payment Date'].dt.to_period('M')
             
-            # Monthly summary
-            st.markdown("<h3 style='color: #FFFFFF;'>Monthly Summary</h3>", unsafe_allow_html=True)
+            # Monthly summary with dynamic title
+            if view_option == "Forward-Looking (Next 12 Months)":
+                st.markdown("<h3 style='color: #FFFFFF;'>Monthly Summary - Next 12 Months</h3>", unsafe_allow_html=True)
+            elif view_option == "Historical (Past 3 Months)":
+                st.markdown("<h3 style='color: #FFFFFF;'>Monthly Summary - Past 3 Months</h3>", unsafe_allow_html=True)
+            else:
+                st.markdown("<h3 style='color: #FFFFFF;'>Monthly Summary - Historical & Forward-Looking</h3>", unsafe_allow_html=True)
             monthly_summary = cashflow_df.groupby('Month').agg({
                 'Payment Amount': 'sum',
                 'Interest': 'sum',
@@ -1176,8 +1221,22 @@ if master_file:
                 
                 for idx, row in display_summary.iterrows():
                     row_class = "cashflow-highlight" if row['Is_Large'] else ""
+                    
+                    # Determine if this month is historical or forward-looking for "Both Views"
+                    month_period = pd.Period(row['Month'])
+                    current_period = pd.Period(today, freq='M')
+                    is_historical = month_period <= current_period
+                    
+                    # Add visual indicator for Both Views
+                    month_display = row['Month']
+                    if view_option == "Both Views":
+                        if is_historical:
+                            month_display = f"📊 {row['Month']}"  # Historical indicator
+                        else:
+                            month_display = f"📈 {row['Month']}"  # Forward-looking indicator
+                    
                     table_html += f"<tr class='{row_class}' style='border-bottom: 1px solid #3d3d3d;'>"
-                    table_html += f"<td style='padding: 0.75rem;'>{row['Month']}</td>"
+                    table_html += f"<td style='padding: 0.75rem;'>{month_display}</td>"
                     table_html += f"<td style='padding: 0.75rem; text-align: right; font-weight: {'bold' if row['Is_Large'] else 'normal'}; color: {'#FDB813' if row['Is_Large'] else '#FFFFFF'};'>{format_currency(row['Payment Amount'])}</td>"
                     table_html += f"<td style='padding: 0.75rem; text-align: right;'>{format_currency(row['Interest'])}</td>"
                     table_html += f"<td style='padding: 0.75rem; text-align: right;'>{format_currency(row['Principal'])}</td>"
@@ -1186,7 +1245,10 @@ if master_file:
                 table_html += "</tbody></table></div>"
                 st.markdown(table_html, unsafe_allow_html=True)
                 
-                # Add note about highlighted months
+                # Add notes
+                if view_option == "Both Views":
+                    st.info("📊 = Historical (Actual) | 📈 = Forward-Looking (Projected)")
+                
                 large_months = monthly_summary[monthly_summary['Is_Large']]['Month'].tolist()
                 if large_months:
                     st.info(f"⭐ Highlighted months have payments exceeding $500,000: {', '.join(large_months)}")
@@ -1197,7 +1259,15 @@ if master_file:
                 total_principal = monthly_summary['Principal'].sum()
                 avg_monthly = total_expected / len(monthly_summary) if len(monthly_summary) > 0 else 0
                 
-                st.metric("12-Month Total", format_currency(total_expected))
+                # Dynamic metric labels based on view
+                if view_option == "Forward-Looking (Next 12 Months)":
+                    period_label = "12-Month"
+                elif view_option == "Historical (Past 3 Months)":
+                    period_label = "3-Month"
+                else:
+                    period_label = "Period"
+                
+                st.metric(f"{period_label} Total", format_currency(total_expected))
                 st.metric("Total Interest", format_currency(total_interest))
                 st.metric("Total Principal", format_currency(total_principal))
                 st.metric("Monthly Average", format_currency(avg_monthly))
@@ -1433,7 +1503,7 @@ if master_file:
                 format_currency(unrealized_gain_loss),
                 gain_loss_pct,
                 ls_data['summary']['avg_age'],
-                ls_data['summary']['male_percentage'],
+                ls_data['summary']['male_percentage'],  
                 ls_data['summary']['avg_remaining_le'],
                 ls_data['summary']['premiums_as_pct_face']
             ), unsafe_allow_html=True)
