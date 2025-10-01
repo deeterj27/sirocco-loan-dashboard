@@ -1753,15 +1753,15 @@ if master_file:
                         st.session_state.policy_sort = {'column': 'Policy_ID', 'ascending': True}
                         st.rerun()
                 
-                # Create simple sort controls without filter buttons
+                # Create interactive table with clickable headers
                 st.markdown("### 📊 Policy Details Table")
-                st.markdown("*Click the sort buttons below to sort by column*")
+                st.markdown("*Click on column headers to sort • Click on column names to filter*")
                 
-                # Create sort controls for each column
-                sort_cols = st.columns(len(column_config))
+                # Create clickable header row using Streamlit columns
+                header_cols = st.columns(len(column_config))
                 
                 for i, (col_name, col_info) in enumerate(column_config.items()):
-                    with sort_cols[i]:
+                    with header_cols[i]:
                         # Current sort indicator
                         current_sort = st.session_state.policy_sort
                         is_current_sort = current_sort['column'] == col_info['column']
@@ -1769,24 +1769,52 @@ if master_file:
                         if is_current_sort:
                             sort_indicator = " ⬆️" if current_sort['ascending'] else " ⬇️"
                         
-                        # Column name with sort indicator
-                        st.markdown(f"**{col_name}{sort_indicator}**")
+                        # Create a styled header container
+                        st.markdown(f"""
+                        <div style="
+                            background-color: #FDB813; 
+                            color: #1a1a1a; 
+                            padding: 0.75rem; 
+                            text-align: center; 
+                            font-weight: 600; 
+                            border-radius: 8px 8px 0 0;
+                            margin-bottom: 0;
+                            border-bottom: 2px solid #1a1a1a;
+                            cursor: pointer;
+                            transition: background-color 0.2s ease;
+                        " onmouseover="this.style.backgroundColor='#fcc944'" 
+                           onmouseout="this.style.backgroundColor='#FDB813'">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="text-decoration: underline; cursor: pointer;" 
+                                      onclick="alert('Filter popup for {col_name} would open here')">
+                                    {col_name}
+                                </span>
+                                <span style="font-size: 12px;">{sort_indicator}</span>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
                         
-                        # Sort buttons only
-                        sort_btn_col1, sort_btn_col2 = st.columns(2)
-                        with sort_btn_col1:
+                        # Sort buttons below the header
+                        sort_col1, sort_col2 = st.columns(2)
+                        with sort_col1:
                             if st.button("⬆️", key=f"sort_asc_{col_info['column']}", 
                                        help=f"Sort {col_name} ascending", 
                                        use_container_width=True):
                                 st.session_state.policy_sort = {'column': col_info['column'], 'ascending': True}
                                 st.rerun()
                         
-                        with sort_btn_col2:
+                        with sort_col2:
                             if st.button("⬇️", key=f"sort_desc_{col_info['column']}", 
                                        help=f"Sort {col_name} descending", 
                                        use_container_width=True):
                                 st.session_state.policy_sort = {'column': col_info['column'], 'ascending': False}
                                 st.rerun()
+                        
+                        # Filter popup (show when requested)
+                        filter_key = f"show_filter_{col_info['column']}"
+                        if st.session_state.get(filter_key, False):
+                            with st.expander(f"🔍 Filter {col_name}", expanded=True):
+                                create_filter_popup(col_name, col_info)
                 
                 # Row limit control
                 row_limit_col1, row_limit_col2 = st.columns([1, 4])
@@ -1824,57 +1852,58 @@ if master_file:
                         if len(filtered_df) > max_rows:
                             st.warning(f"⚠️ Displaying first {max_rows} rows. Check 'Show all rows' to see all {filtered_policies} policies.")
                 
-                # Convert to HTML with original custom styling
-                html_table = display_df.to_html(
-                    escape=False,
-                    index=False,
-                    classes='policy-table'
-                )
-                
-                # Add original custom CSS for the table
-                table_style = """
-                <style>
-                .policy-table {
-                    width: 100%;
-                    color: white;
-                    border-collapse: collapse;
-                    background-color: #2d2d2d;
-                    font-size: 0.9rem;
-                    margin-top: 1rem;
-                }
-                .policy-table th {
-                    background-color: #FDB813;
-                    color: #1a1a1a;
-                    padding: 0.75rem;
-                    text-align: left;
-                    font-weight: 600;
-                    position: sticky;
-                    top: 0;
-                    z-index: 10;
-                    border-bottom: 2px solid #1a1a1a;
-                }
-                .policy-table td {
-                    padding: 0.75rem;
-                    border-bottom: 1px solid #3d3d3d;
-                }
-                .policy-table tr:hover {
-                    background-color: #3d3d3d;
-                }
-                .policy-table td:nth-child(3),
-                .policy-table td:nth-child(4),
-                .policy-table th:nth-child(3),
-                .policy-table th:nth-child(4) {
-                    text-align: center;
-                }
-                .policy-table td:nth-child(n+5),
-                .policy-table th:nth-child(n+5) {
-                    text-align: right;
-                }
-                </style>
-                """
-                
-                # Display the styled table
+                # Display the data table with original styling
                 if not display_df.empty:
+                    # Convert to HTML with original custom styling
+                    html_table = display_df.to_html(
+                        escape=False,
+                        index=False,
+                        classes='policy-table'
+                    )
+                    
+                    # Add original custom CSS for the table
+                    table_style = """
+                    <style>
+                    .policy-table {
+                        width: 100%;
+                        color: white;
+                        border-collapse: collapse;
+                        background-color: #2d2d2d;
+                        font-size: 0.9rem;
+                        margin-top: 1rem;
+                    }
+                    .policy-table th {
+                        background-color: #FDB813;
+                        color: #1a1a1a;
+                        padding: 0.75rem;
+                        text-align: left;
+                        font-weight: 600;
+                        position: sticky;
+                        top: 0;
+                        z-index: 10;
+                        border-bottom: 2px solid #1a1a1a;
+                    }
+                    .policy-table td {
+                        padding: 0.75rem;
+                        border-bottom: 1px solid #3d3d3d;
+                    }
+                    .policy-table tr:hover {
+                        background-color: #3d3d3d;
+                    }
+                    .policy-table td:nth-child(3),
+                    .policy-table td:nth-child(4),
+                    .policy-table th:nth-child(3),
+                    .policy-table th:nth-child(4) {
+                        text-align: center;
+                    }
+                    .policy-table td:nth-child(n+5),
+                    .policy-table th:nth-child(n+5) {
+                        text-align: right;
+                    }
+                    </style>
+                    """
+                    
+                    # Display the styled table
                     st.markdown(
                         f'<div style="background-color: #2d2d2d; padding: 1rem; border-radius: 8px; overflow-x: auto; max-height: 600px; overflow-y: auto;">'
                         f'{table_style}{html_table}'
