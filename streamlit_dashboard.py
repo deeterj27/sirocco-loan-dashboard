@@ -1753,73 +1753,15 @@ if master_file:
                         st.session_state.policy_sort = {'column': 'Policy_ID', 'ascending': True}
                         st.rerun()
                 
-                # Create a more integrated table header experience
+                # Create simple sort controls without filter buttons
                 st.markdown("### 📊 Policy Details Table")
-                st.markdown("*Click the buttons in each column header to sort and filter*")
+                st.markdown("*Click the sort buttons below to sort by column*")
                 
-                # Create a custom header row that looks like table headers
-                st.markdown("""
-                <style>
-                .table-header-container {
-                    background-color: #FDB813;
-                    color: #1a1a1a;
-                    padding: 0.75rem;
-                    border-radius: 8px 8px 0 0;
-                    display: grid;
-                    grid-template-columns: repeat(10, 1fr);
-                    gap: 0.5rem;
-                    font-weight: 600;
-                    margin-bottom: 0;
-                }
-                .header-cell {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    text-align: center;
-                    padding: 0.5rem;
-                    border-right: 1px solid rgba(26, 26, 26, 0.2);
-                }
-                .header-cell:last-child {
-                    border-right: none;
-                }
-                .header-title {
-                    font-size: 0.9rem;
-                    margin-bottom: 0.25rem;
-                    font-weight: 600;
-                }
-                .header-controls {
-                    display: flex;
-                    gap: 2px;
-                    justify-content: center;
-                }
-                .header-btn {
-                    background: rgba(26, 26, 26, 0.1);
-                    border: 1px solid rgba(26, 26, 26, 0.2);
-                    border-radius: 3px;
-                    padding: 2px 4px;
-                    cursor: pointer;
-                    font-size: 10px;
-                    transition: all 0.2s ease;
-                    min-width: 20px;
-                    text-align: center;
-                }
-                .header-btn:hover {
-                    background: rgba(26, 26, 26, 0.3);
-                    transform: scale(1.1);
-                }
-                .sort-indicator {
-                    font-size: 12px;
-                    margin-left: 2px;
-                }
-                </style>
-                """, unsafe_allow_html=True)
-                
-                # Create the header row with integrated controls
-                header_cols = st.columns(10)
-                column_names = list(column_config.keys())
+                # Create sort controls for each column
+                sort_cols = st.columns(len(column_config))
                 
                 for i, (col_name, col_info) in enumerate(column_config.items()):
-                    with header_cols[i]:
+                    with sort_cols[i]:
                         # Current sort indicator
                         current_sort = st.session_state.policy_sort
                         is_current_sort = current_sort['column'] == col_info['column']
@@ -1827,42 +1769,24 @@ if master_file:
                         if is_current_sort:
                             sort_indicator = " ⬆️" if current_sort['ascending'] else " ⬇️"
                         
-                        # Create a container that looks like a table header
-                        with st.container():
-                            # Column title with sort indicator
-                            st.markdown(f"**{col_name}{sort_indicator}**")
-                            
-                            # Control buttons in a horizontal layout
-                            btn_col1, btn_col2, btn_col3 = st.columns(3)
-                            
-                            with btn_col1:
-                                if st.button("⬆️", key=f"sort_asc_{col_info['column']}", 
-                                           help=f"Sort {col_name} ascending", 
-                                           use_container_width=True):
-                                    st.session_state.policy_sort = {'column': col_info['column'], 'ascending': True}
-                                    st.rerun()
-                            
-                            with btn_col2:
-                                if st.button("⬇️", key=f"sort_desc_{col_info['column']}", 
-                                           help=f"Sort {col_name} descending", 
-                                           use_container_width=True):
-                                    st.session_state.policy_sort = {'column': col_info['column'], 'ascending': False}
-                                    st.rerun()
-                            
-                            with btn_col3:
-                                if st.button("🔍", key=f"filter_{col_info['column']}", 
-                                           help=f"Filter {col_name}", 
-                                           use_container_width=True):
-                                    # Toggle filter visibility in session state
-                                    filter_key = f"show_filter_{col_info['column']}"
-                                    st.session_state[filter_key] = not st.session_state.get(filter_key, False)
-                                    st.rerun()
+                        # Column name with sort indicator
+                        st.markdown(f"**{col_name}{sort_indicator}**")
                         
-                        # Show filter popup if toggled
-                        filter_key = f"show_filter_{col_info['column']}"
-                        if st.session_state.get(filter_key, False):
-                            with st.expander(f"🔍 Filter {col_name}", expanded=True):
-                                create_filter_popup(col_name, col_info)
+                        # Sort buttons only
+                        sort_btn_col1, sort_btn_col2 = st.columns(2)
+                        with sort_btn_col1:
+                            if st.button("⬆️", key=f"sort_asc_{col_info['column']}", 
+                                       help=f"Sort {col_name} ascending", 
+                                       use_container_width=True):
+                                st.session_state.policy_sort = {'column': col_info['column'], 'ascending': True}
+                                st.rerun()
+                        
+                        with sort_btn_col2:
+                            if st.button("⬇️", key=f"sort_desc_{col_info['column']}", 
+                                       help=f"Sort {col_name} descending", 
+                                       use_container_width=True):
+                                st.session_state.policy_sort = {'column': col_info['column'], 'ascending': False}
+                                st.rerun()
                 
                 # Row limit control
                 row_limit_col1, row_limit_col2 = st.columns([1, 4])
@@ -1900,14 +1824,62 @@ if master_file:
                         if len(filtered_df) > max_rows:
                             st.warning(f"⚠️ Displaying first {max_rows} rows. Check 'Show all rows' to see all {filtered_policies} policies.")
                 
-                # Display the data table using Streamlit's dataframe
+                # Convert to HTML with original custom styling
+                html_table = display_df.to_html(
+                    escape=False,
+                    index=False,
+                    classes='policy-table'
+                )
+                
+                # Add original custom CSS for the table
+                table_style = """
+                <style>
+                .policy-table {
+                    width: 100%;
+                    color: white;
+                    border-collapse: collapse;
+                    background-color: #2d2d2d;
+                    font-size: 0.9rem;
+                    margin-top: 1rem;
+                }
+                .policy-table th {
+                    background-color: #FDB813;
+                    color: #1a1a1a;
+                    padding: 0.75rem;
+                    text-align: left;
+                    font-weight: 600;
+                    position: sticky;
+                    top: 0;
+                    z-index: 10;
+                    border-bottom: 2px solid #1a1a1a;
+                }
+                .policy-table td {
+                    padding: 0.75rem;
+                    border-bottom: 1px solid #3d3d3d;
+                }
+                .policy-table tr:hover {
+                    background-color: #3d3d3d;
+                }
+                .policy-table td:nth-child(3),
+                .policy-table td:nth-child(4),
+                .policy-table th:nth-child(3),
+                .policy-table th:nth-child(4) {
+                    text-align: center;
+                }
+                .policy-table td:nth-child(n+5),
+                .policy-table th:nth-child(n+5) {
+                    text-align: right;
+                }
+                </style>
+                """
+                
+                # Display the styled table
                 if not display_df.empty:
-                    st.markdown("### 📋 Data Table")
-                    st.dataframe(
-                        display_df, 
-                        use_container_width=True, 
-                        hide_index=True,
-                        height=400
+                    st.markdown(
+                        f'<div style="background-color: #2d2d2d; padding: 1rem; border-radius: 8px; overflow-x: auto; max-height: 600px; overflow-y: auto;">'
+                        f'{table_style}{html_table}'
+                        f'</div>',
+                        unsafe_allow_html=True
                     )
                 else:
                     st.warning("🔍 No policies match the current filter criteria. Please adjust your filters.")
