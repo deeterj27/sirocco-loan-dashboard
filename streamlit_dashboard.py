@@ -1541,7 +1541,7 @@ if master_file:
                 st.markdown("<h3 style='color: #FDB813; margin-top: 2rem; font-size: 1.4rem;'>💵 Monthly Premium Projections</h3>", unsafe_allow_html=True)
                 st.info("⚠️ Premium Stream sheet not found - monthly premium projections are not available for this file.")
             
-            # Policy Details Table
+            # Policy Details Table with Filtering and Sorting
             st.markdown("<h3 style='color: #FFFFFF; margin-top: 2rem; font-size: 1.4rem;'>📋 Policy Details</h3>", unsafe_allow_html=True)
             
             if ls_data['policies']:
@@ -1551,28 +1551,184 @@ if master_file:
                 policies_df['Unrealized_Gain_Loss'] = policies_df['Valuation'] - policies_df['Cost_Basis']
                 policies_df['Gain_Loss_Pct'] = (policies_df['Unrealized_Gain_Loss'] / policies_df['Cost_Basis'] * 100).fillna(0)
                 
-                # Create display dataframe with formatted values
+                # Add filtering and sorting controls
+                st.markdown("<h4 style='color: #FDB813; margin-top: 1.5rem;'>🔍 Filter & Sort Policies</h4>", unsafe_allow_html=True)
+                
+                # Create filter controls in columns
+                filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
+                
+                with filter_col1:
+                    # Search by name or policy ID
+                    search_term = st.text_input("🔍 Search Name/Policy ID", placeholder="Enter name or policy ID...")
+                    
+                    # Age range filter
+                    age_min, age_max = st.slider(
+                        "Age Range",
+                        min_value=int(policies_df['Age'].min()) if policies_df['Age'].min() > 0 else 0,
+                        max_value=int(policies_df['Age'].max()) if policies_df['Age'].max() > 0 else 100,
+                        value=(int(policies_df['Age'].min()) if policies_df['Age'].min() > 0 else 0, 
+                               int(policies_df['Age'].max()) if policies_df['Age'].max() > 0 else 100),
+                        step=1
+                    )
+                
+                with filter_col2:
+                    # Gender filter
+                    unique_genders = policies_df['Gender'].unique()
+                    gender_options = ['All'] + [g for g in unique_genders if pd.notna(g) and str(g).strip()]
+                    selected_gender = st.selectbox("Gender", gender_options)
+                    
+                    # Face value range filter
+                    face_min, face_max = st.slider(
+                        "Face Value Range ($)",
+                        min_value=0,
+                        max_value=int(policies_df['NDB'].max()) if policies_df['NDB'].max() > 0 else 1000000,
+                        value=(0, int(policies_df['NDB'].max()) if policies_df['NDB'].max() > 0 else 1000000),
+                        step=10000
+                    )
+                
+                with filter_col3:
+                    # Gain/Loss filter
+                    gain_loss_options = ['All', 'Gains Only', 'Losses Only', 'Break Even']
+                    selected_gain_loss = st.selectbox("Gain/Loss Filter", gain_loss_options)
+                    
+                    # Premium range filter
+                    premium_min, premium_max = st.slider(
+                        "Annual Premium Range ($)",
+                        min_value=0,
+                        max_value=int(policies_df['Annual_Premium'].max()) if policies_df['Annual_Premium'].max() > 0 else 50000,
+                        value=(0, int(policies_df['Annual_Premium'].max()) if policies_df['Annual_Premium'].max() > 0 else 50000),
+                        step=1000
+                    )
+                
+                with filter_col4:
+                    # Sort options
+                    sort_options = {
+                        'Policy ID': 'Policy_ID',
+                        'Name': 'Name',
+                        'Age': 'Age',
+                        'Face Value': 'NDB',
+                        'Valuation': 'Valuation',
+                        'Cost Basis': 'Cost_Basis',
+                        'Unrealized Gain/Loss': 'Unrealized_Gain_Loss',
+                        'Annual Premium': 'Annual_Premium',
+                        'Premium % Face': 'Premium_Pct_Face'
+                    }
+                    
+                    sort_column = st.selectbox("Sort by", list(sort_options.keys()))
+                    sort_ascending = st.radio("Sort Order", ["Ascending", "Descending"], horizontal=True) == "Ascending"
+                    
+                    # Show/hide columns
+                    st.markdown("**Show Columns:**")
+                    show_policy_id = st.checkbox("Policy ID", value=True)
+                    show_name = st.checkbox("Name", value=True)
+                    show_age = st.checkbox("Age", value=True)
+                    show_gender = st.checkbox("Gender", value=True)
+                    show_face_value = st.checkbox("Face Value", value=True)
+                    show_valuation = st.checkbox("Valuation", value=True)
+                    show_cost_basis = st.checkbox("Cost Basis", value=True)
+                    show_gain_loss = st.checkbox("Gain/Loss", value=True)
+                    show_premium = st.checkbox("Annual Premium", value=True)
+                    show_premium_pct = st.checkbox("Premium % Face", value=True)
+                
+                # Apply filters
+                filtered_df = policies_df.copy()
+                
+                # Search filter
+                if search_term:
+                    search_mask = (
+                        filtered_df['Name'].str.contains(search_term, case=False, na=False) |
+                        filtered_df['Policy_ID'].str.contains(search_term, case=False, na=False)
+                    )
+                    filtered_df = filtered_df[search_mask]
+                
+                # Age filter
+                filtered_df = filtered_df[
+                    (filtered_df['Age'] >= age_min) & 
+                    (filtered_df['Age'] <= age_max)
+                ]
+                
+                # Gender filter
+                if selected_gender != 'All':
+                    filtered_df = filtered_df[filtered_df['Gender'] == selected_gender]
+                
+                # Face value filter
+                filtered_df = filtered_df[
+                    (filtered_df['NDB'] >= face_min) & 
+                    (filtered_df['NDB'] <= face_max)
+                ]
+                
+                # Gain/Loss filter
+                if selected_gain_loss == 'Gains Only':
+                    filtered_df = filtered_df[filtered_df['Unrealized_Gain_Loss'] > 0]
+                elif selected_gain_loss == 'Losses Only':
+                    filtered_df = filtered_df[filtered_df['Unrealized_Gain_Loss'] < 0]
+                elif selected_gain_loss == 'Break Even':
+                    filtered_df = filtered_df[filtered_df['Unrealized_Gain_Loss'] == 0]
+                
+                # Premium filter
+                filtered_df = filtered_df[
+                    (filtered_df['Annual_Premium'] >= premium_min) & 
+                    (filtered_df['Annual_Premium'] <= premium_max)
+                ]
+                
+                # Apply sorting
+                sort_col = sort_options[sort_column]
+                filtered_df = filtered_df.sort_values(sort_col, ascending=sort_ascending)
+                
+                # Create display dataframe with selected columns
                 display_df = pd.DataFrame()
-                display_df['Policy ID'] = policies_df['Policy_ID']
-                display_df['Name'] = policies_df['Name']
-                display_df['Age'] = policies_df['Age'].round(0).astype(int)
-                display_df['Gender'] = policies_df['Gender']
-                display_df['Face Value'] = policies_df['NDB'].apply(format_currency)
-                display_df['Valuation'] = policies_df['Valuation'].apply(format_currency)
-                display_df['Cost Basis'] = policies_df['Cost_Basis'].apply(format_currency)
                 
-                # Format unrealized gain/loss with color
-                def format_unrealized(row):
-                    value = row['Unrealized_Gain_Loss']
-                    formatted = format_currency(value)
-                    if value >= 0:
-                        return f'<span style="color: #4ECDC4; font-weight: 600;">{formatted}</span>'
-                    else:
-                        return f'<span style="color: #FF6B6B; font-weight: 600;">{formatted}</span>'
+                if show_policy_id:
+                    display_df['Policy ID'] = filtered_df['Policy_ID']
+                if show_name:
+                    display_df['Name'] = filtered_df['Name']
+                if show_age:
+                    display_df['Age'] = filtered_df['Age'].round(0).astype(int)
+                if show_gender:
+                    display_df['Gender'] = filtered_df['Gender']
+                if show_face_value:
+                    display_df['Face Value'] = filtered_df['NDB'].apply(format_currency)
+                if show_valuation:
+                    display_df['Valuation'] = filtered_df['Valuation'].apply(format_currency)
+                if show_cost_basis:
+                    display_df['Cost Basis'] = filtered_df['Cost_Basis'].apply(format_currency)
+                if show_gain_loss:
+                    # Format unrealized gain/loss with color
+                    def format_unrealized(row):
+                        value = row['Unrealized_Gain_Loss']
+                        formatted = format_currency(value)
+                        if value >= 0:
+                            return f'<span style="color: #4ECDC4; font-weight: 600;">{formatted}</span>'
+                        else:
+                            return f'<span style="color: #FF6B6B; font-weight: 600;">{formatted}</span>'
+                    
+                    display_df['Unrealized Gain/(Loss)'] = filtered_df.apply(format_unrealized, axis=1)
+                if show_premium:
+                    display_df['Annual Premium'] = filtered_df['Annual_Premium'].apply(format_currency)
+                if show_premium_pct:
+                    display_df['Premium % Face'] = filtered_df['Premium_Pct_Face'].apply(lambda x: f"{x:.2f}%")
                 
-                display_df['Unrealized Gain/(Loss)'] = policies_df.apply(format_unrealized, axis=1)
-                display_df['Annual Premium'] = policies_df['Annual_Premium'].apply(format_currency)
-                display_df['Premium % Face'] = policies_df['Premium_Pct_Face'].apply(lambda x: f"{x:.2f}%")
+                # Display filter summary
+                total_policies = len(policies_df)
+                filtered_policies = len(filtered_df)
+                
+                if filtered_policies != total_policies:
+                    st.info(f"📊 Showing {filtered_policies} of {total_policies} policies ({filtered_policies/total_policies*100:.1f}%)")
+                else:
+                    st.info(f"📊 Showing all {total_policies} policies")
+                
+                # Add row limit control
+                row_limit_col1, row_limit_col2 = st.columns([1, 4])
+                with row_limit_col1:
+                    show_all_rows = st.checkbox("Show all rows", value=False)
+                
+                if not show_all_rows:
+                    with row_limit_col2:
+                        max_rows = st.slider("Max rows to display", min_value=10, max_value=min(500, filtered_policies), 
+                                           value=min(50, filtered_policies), step=10)
+                        display_df = display_df.head(max_rows)
+                        if len(filtered_df) > max_rows:
+                            st.warning(f"⚠️ Displaying first {max_rows} rows. Check 'Show all rows' to see all {filtered_policies} policies.")
                 
                 # Convert to HTML with custom styling
                 html_table = display_df.to_html(
@@ -1589,6 +1745,7 @@ if master_file:
                     color: white;
                     border-collapse: collapse;
                     background-color: #2d2d2d;
+                    font-size: 0.9rem;
                 }
                 .policy-table th {
                     background-color: #FDB813;
@@ -1596,6 +1753,9 @@ if master_file:
                     padding: 0.75rem;
                     text-align: left;
                     font-weight: 600;
+                    position: sticky;
+                    top: 0;
+                    z-index: 10;
                 }
                 .policy-table td {
                     padding: 0.75rem;
@@ -1610,30 +1770,33 @@ if master_file:
                 .policy-table th:nth-child(4) {
                     text-align: center;
                 }
-                .policy-table td:nth-child(5),
-                .policy-table td:nth-child(6),
-                .policy-table td:nth-child(7),
-                .policy-table td:nth-child(8),
-                .policy-table td:nth-child(9),
-                .policy-table td:nth-child(10),
-                .policy-table th:nth-child(5),
-                .policy-table th:nth-child(6),
-                .policy-table th:nth-child(7),
-                .policy-table th:nth-child(8),
-                .policy-table th:nth-child(9),
-                .policy-table th:nth-child(10) {
+                .policy-table td:nth-child(n+5),
+                .policy-table th:nth-child(n+5) {
                     text-align: right;
                 }
                 </style>
                 """
                 
                 # Display the styled table
-                st.markdown(
-                    f'<div style="background-color: #2d2d2d; padding: 1rem; border-radius: 8px; overflow-x: auto;">'
-                    f'{table_style}{html_table}'
-                    f'</div>',
-                    unsafe_allow_html=True
-                )
+                if not display_df.empty:
+                    st.markdown(
+                        f'<div style="background-color: #2d2d2d; padding: 1rem; border-radius: 8px; overflow-x: auto; max-height: 600px; overflow-y: auto;">'
+                        f'{table_style}{html_table}'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+                else:
+                    st.warning("🔍 No policies match the current filter criteria. Please adjust your filters.")
+                
+                # Export functionality
+                if st.button("📥 Export Filtered Data to CSV", key="export_policies"):
+                    csv = filtered_df.to_csv(index=False)
+                    st.download_button(
+                        label="Download CSV",
+                        data=csv,
+                        file_name=f"filtered_policies_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv"
+                    )
         
     except Exception as e:
         st.error(f"Error processing master file: {str(e)}")
