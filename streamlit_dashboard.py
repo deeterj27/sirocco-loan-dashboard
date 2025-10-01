@@ -1793,12 +1793,16 @@ if master_file:
                         if len(filtered_df) > max_rows:
                             st.warning(f"⚠️ Displaying first {max_rows} rows. Check 'Show all rows' to see all {filtered_policies} policies.")
                 
-                # Create sort controls directly above the table
-                st.markdown("#### Sort Controls:")
-                sort_controls_cols = st.columns(len(column_config))
+                # No separate sort controls - sorting will be done by clicking table headers
+                
+                # Create header row with sort buttons that look like table headers
+                st.markdown("#### Table Headers (Click to Sort):")
+                
+                # Create header row with sort buttons
+                header_cols = st.columns(len(column_config))
                 
                 for i, (col_name, col_info) in enumerate(column_config.items()):
-                    with sort_controls_cols[i]:
+                    with header_cols[i]:
                         # Current sort indicator
                         current_sort = st.session_state.policy_sort
                         is_current_sort = current_sort['column'] == col_info['column']
@@ -1807,9 +1811,22 @@ if master_file:
                             sort_indicator = " ⬆️" if current_sort['ascending'] else " ⬇️"
                         
                         # Column name with sort indicator
-                        st.markdown(f"**{col_name}{sort_indicator}**")
+                        st.markdown(f"""
+                        <div style="
+                            background-color: #FDB813; 
+                            color: #1a1a1a; 
+                            padding: 0.75rem; 
+                            text-align: center; 
+                            font-weight: 600; 
+                            border-radius: 8px 8px 0 0;
+                            margin-bottom: 0;
+                            border-bottom: 2px solid #1a1a1a;
+                        ">
+                            {col_name}{sort_indicator}
+                        </div>
+                        """, unsafe_allow_html=True)
                         
-                        # Sort buttons
+                        # Sort buttons below each header
                         sort_col1, sort_col2 = st.columns(2)
                         with sort_col1:
                             if st.button("⬆️", key=f"sort_asc_{col_info['column']}", 
