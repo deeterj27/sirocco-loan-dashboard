@@ -1753,68 +1753,9 @@ if master_file:
                         st.session_state.policy_sort = {'column': 'Policy_ID', 'ascending': True}
                         st.rerun()
                 
-                # Create interactive table with clickable headers
+                # Create table with sort buttons integrated into headers
                 st.markdown("### 📊 Policy Details Table")
-                st.markdown("*Click on column headers to sort • Click on column names to filter*")
-                
-                # Create clickable header row using Streamlit columns
-                header_cols = st.columns(len(column_config))
-                
-                for i, (col_name, col_info) in enumerate(column_config.items()):
-                    with header_cols[i]:
-                        # Current sort indicator
-                        current_sort = st.session_state.policy_sort
-                        is_current_sort = current_sort['column'] == col_info['column']
-                        sort_indicator = ""
-                        if is_current_sort:
-                            sort_indicator = " ⬆️" if current_sort['ascending'] else " ⬇️"
-                        
-                        # Create a styled header container
-                        st.markdown(f"""
-                        <div style="
-                            background-color: #FDB813; 
-                            color: #1a1a1a; 
-                            padding: 0.75rem; 
-                            text-align: center; 
-                            font-weight: 600; 
-                            border-radius: 8px 8px 0 0;
-                            margin-bottom: 0;
-                            border-bottom: 2px solid #1a1a1a;
-                            cursor: pointer;
-                            transition: background-color 0.2s ease;
-                        " onmouseover="this.style.backgroundColor='#fcc944'" 
-                           onmouseout="this.style.backgroundColor='#FDB813'">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="text-decoration: underline; cursor: pointer;" 
-                                      onclick="alert('Filter popup for {col_name} would open here')">
-                                    {col_name}
-                                </span>
-                                <span style="font-size: 12px;">{sort_indicator}</span>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        # Sort buttons below the header
-                        sort_col1, sort_col2 = st.columns(2)
-                        with sort_col1:
-                            if st.button("⬆️", key=f"sort_asc_{col_info['column']}", 
-                                       help=f"Sort {col_name} ascending", 
-                                       use_container_width=True):
-                                st.session_state.policy_sort = {'column': col_info['column'], 'ascending': True}
-                                st.rerun()
-                        
-                        with sort_col2:
-                            if st.button("⬇️", key=f"sort_desc_{col_info['column']}", 
-                                       help=f"Sort {col_name} descending", 
-                                       use_container_width=True):
-                                st.session_state.policy_sort = {'column': col_info['column'], 'ascending': False}
-                                st.rerun()
-                        
-                        # Filter popup (show when requested)
-                        filter_key = f"show_filter_{col_info['column']}"
-                        if st.session_state.get(filter_key, False):
-                            with st.expander(f"🔍 Filter {col_name}", expanded=True):
-                                create_filter_popup(col_name, col_info)
+                st.markdown("*Click the sort buttons next to column headers to sort the table*")
                 
                 # Row limit control
                 row_limit_col1, row_limit_col2 = st.columns([1, 4])
@@ -1851,6 +1792,38 @@ if master_file:
                         display_df = display_df.head(max_rows)
                         if len(filtered_df) > max_rows:
                             st.warning(f"⚠️ Displaying first {max_rows} rows. Check 'Show all rows' to see all {filtered_policies} policies.")
+                
+                # Create sort controls directly above the table
+                st.markdown("#### Sort Controls:")
+                sort_controls_cols = st.columns(len(column_config))
+                
+                for i, (col_name, col_info) in enumerate(column_config.items()):
+                    with sort_controls_cols[i]:
+                        # Current sort indicator
+                        current_sort = st.session_state.policy_sort
+                        is_current_sort = current_sort['column'] == col_info['column']
+                        sort_indicator = ""
+                        if is_current_sort:
+                            sort_indicator = " ⬆️" if current_sort['ascending'] else " ⬇️"
+                        
+                        # Column name with sort indicator
+                        st.markdown(f"**{col_name}{sort_indicator}**")
+                        
+                        # Sort buttons
+                        sort_col1, sort_col2 = st.columns(2)
+                        with sort_col1:
+                            if st.button("⬆️", key=f"sort_asc_{col_info['column']}", 
+                                       help=f"Sort {col_name} ascending", 
+                                       use_container_width=True):
+                                st.session_state.policy_sort = {'column': col_info['column'], 'ascending': True}
+                                st.rerun()
+                        
+                        with sort_col2:
+                            if st.button("⬇️", key=f"sort_desc_{col_info['column']}", 
+                                       help=f"Sort {col_name} descending", 
+                                       use_container_width=True):
+                                st.session_state.policy_sort = {'column': col_info['column'], 'ascending': False}
+                                st.rerun()
                 
                 # Display the data table with original styling
                 if not display_df.empty:
